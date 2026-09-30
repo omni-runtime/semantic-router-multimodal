@@ -1,0 +1,45 @@
+# Requires the verified library extraction from cross-build-arm64.yaml.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sr-cross-build-arm64-02
+  namespace: inference-stack-build
+  labels:
+    app.kubernetes.io/part-of: inference-stack
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: gpu-node
+  containers:
+  - name: build
+    image: docker.io/library/golang@sha256:a02d35efc036053fdf0da8c15919276bf777a80cbfda6a35c5e9f087e652adfc
+    command:
+    - bash
+    - /workspace/scripts/cross-build-arm64.sh
+    workingDir: /workspace
+    env:
+    - name: GOPROXY
+      value: https://goproxy.cn
+    - name: GOMAXPROCS
+      value: '3'
+    - name: GOCACHE
+      value: /workspace/.work/go-build-cache
+    - name: GOMODCACHE
+      value: /workspace/.work/go-mod-cache
+    resources:
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '3'
+        memory: 4Gi
+    volumeMounts:
+    - name: project
+      mountPath: /workspace
+  volumes:
+  - name: project
+    hostPath:
+      path: /srv/semantic-router-multimodal
+      type: Directory
+  activeDeadlineSeconds: 3600

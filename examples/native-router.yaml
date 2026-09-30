@@ -1,0 +1,244 @@
+# Illustrative capabilities and capacity only; replace with actual verified model facts.
+version: v0.3
+listeners:
+- name: inference
+  address: 0.0.0.0
+  port: 8000
+  timeout: 120s
+providers:
+  models:
+  - name: chat
+    provider_model_id: chat-native
+    api_format: openai
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://chat:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: speech
+    provider_model_id: speech-native
+    api_format: speech
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://speech:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: images
+    provider_model_id: images-native
+    api_format: images
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://images:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: audio
+    provider_model_id: audio-native
+    api_format: audio_generate
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://audio:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: transcription
+    provider_model_id: transcription-native
+    api_format: transcription
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://transcription:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: translation
+    provider_model_id: translation-native
+    api_format: translation
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://translation:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: image-edit
+    provider_model_id: image-edit-native
+    api_format: image_edit
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://image-edit:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: video-sync
+    provider_model_id: video-sync-native
+    api_format: video_sync
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://video-sync:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: video-task
+    provider_model_id: video-task-native
+    api_format: video
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://video-task:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: realtime
+    provider_model_id: realtime-native
+    api_format: realtime
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://realtime:8000/v1
+      api_key_env: MODEL_API_KEY
+  - name: speech-stream
+    provider_model_id: speech-stream-native
+    api_format: speech_stream
+    backend_refs:
+    - name: primary
+      provider: vllm-omni
+      base_url: http://speech-stream:8000/v1
+      api_key_env: MODEL_API_KEY
+routing:
+  strategy: priority
+  candidate_requirements: &id001
+    capabilities: declared
+    context: known_limits
+  data_policy: &id002
+    replay: false
+  decisions: &id003
+  - name: capable-native-model
+    priority: 1
+    rules:
+      operator: AND
+      conditions: []
+    algorithm:
+      type: static
+    modelRefs:
+    - model: chat
+    - model: speech
+    - model: images
+    - model: audio
+    - model: transcription
+    - model: translation
+    - model: image-edit
+    - model: video-sync
+    - model: video-task
+    - model: realtime
+    - model: speech-stream
+  modelCards:
+  - name: chat
+    capabilities:
+    - text
+    - image_input
+    - audio_input
+    - video_input
+    - audio_output
+    - tools
+    - structured_json
+    context_window_size: 131072
+    max_output_tokens: 512
+  - name: speech
+    capabilities:
+    - text
+    - speech_generation
+    context_window_size: 131072
+    max_output_tokens: 512
+  - name: images
+    capabilities:
+    - text
+    - image_generation
+    context_window_size: 131072
+    max_output_tokens: 0
+  - name: audio
+    capabilities:
+    - text
+    - audio_generation
+    context_window_size: 131072
+    max_output_tokens: 0
+  - name: transcription
+    capabilities:
+    - text
+    - audio_input
+    - transcription
+    context_window_size: 131072
+    max_output_tokens: 512
+  - name: translation
+    capabilities:
+    - text
+    - audio_input
+    - translation
+    context_window_size: 131072
+    max_output_tokens: 512
+  - name: image-edit
+    capabilities:
+    - text
+    - image_input
+    - image_editing
+    context_window_size: 131072
+    max_output_tokens: 0
+  - name: video-sync
+    capabilities:
+    - text
+    - image_input
+    - audio_input
+    - video_input
+    - video_output
+    - audio_output
+    - video_generation
+    context_window_size: 131072
+    max_output_tokens: 0
+  - name: video-task
+    capabilities:
+    - text
+    - image_input
+    - audio_input
+    - video_input
+    - video_output
+    - audio_output
+    - video_generation
+    context_window_size: 131072
+    max_output_tokens: 0
+  - name: realtime
+    capabilities:
+    - text
+    - realtime
+    - audio_input
+    - audio_output
+    context_window_size: 32768
+    max_output_tokens: 0
+  - name: speech-stream
+    capabilities:
+    - text
+    - realtime
+    - speech_generation
+    - audio_output
+    context_window_size: 32768
+    max_output_tokens: 0
+entrypoints:
+- model_names:
+  - local-only
+  recipe: local-only
+recipes:
+- name: local-only
+  routing:
+    strategy: priority
+    candidate_requirements: *id001
+    data_policy: *id002
+    decisions: *id003
+global:
+  router:
+    auto_model_names:
+    - auto
+    require_entrypoint: true
+    skip_processing:
+      enabled: false
+    fallback:
+      version: 1
+      enabled: false
+  stores:
+    response_cache:
+      enabled: false
+      backend_type: memory
+    media_bindings:
+      address: media-bindings:6379
+      ttl_seconds: 3600
+      max_total_bytes: 16777216
+      instances:
+        video-task: single-video-worker-generation-1

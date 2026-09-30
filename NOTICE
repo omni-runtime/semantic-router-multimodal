@@ -1,0 +1,11 @@
+semantic-router-multimodal
+Copyright 2026 The semantic-router-multimodal contributors.
+
+This project works with vLLM Semantic Router, an Apache-2.0-licensed project
+maintained at https://github.com/vllm-project/semantic-router.
+The patch set contains modifications to upstream code. Original copyright and license notices remain in the patch context and prepared source.
+
+Model weights, inference engines, container base images, and other dependencies
+are separately distributed and retain their own licenses. This repository does
+not distribute model weights. Project and product names identify compatibility;
+they do not imply endorsement by upstream maintainers.

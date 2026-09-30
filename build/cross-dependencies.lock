@@ -1,0 +1,4 @@
+gcc-aarch64-linux-gnu=4:14.2.0-1
+gcc-14-aarch64-linux-gnu=14.2.0-19cross1
+libc6-dev-arm64-cross=2.41-11cross1
+qemu-user=1:10.0.13+ds-0+deb13u1

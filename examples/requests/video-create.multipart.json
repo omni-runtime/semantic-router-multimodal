@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/v1/videos",
+  "fields": {
+    "model": "local-only",
+    "prompt": "A blue square moves slowly",
+    "seconds": "1"
+  },
+  "files": []
+}

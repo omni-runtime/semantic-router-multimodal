@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "path": "/v1/audio/translations",
+  "fields": {
+    "model": "auto",
+    "max_completion_tokens": "32",
+    "response_format": "text"
+  },
+  "files": [
+    {
+      "name": "file",
+      "path": "assets/silence.wav",
+      "content_type": "audio/wav"
+    }
+  ]
+}

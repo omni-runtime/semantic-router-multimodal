@@ -1,0 +1,37 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python scripts/validate-public.py
+      - name: Prepare exact upstream plus authoritative patches
+        run: |
+          python scripts/prepare.py --output .work/prepared
+          python scripts/verify-checkout.py .work/prepared
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: .work/prepared/src/semantic-router/go.mod
+          cache: false
+      - name: Pure protocol tests (not full native-runtime acceptance)
+        working-directory: .work/prepared/src/semantic-router
+        env:
+          CGO_ENABLED: '0'
+        run: go test ./pkg/llmprotocol ./pkg/protocolcodec -count=1

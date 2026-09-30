@@ -1,0 +1,17 @@
+{
+  "method": "POST",
+  "path": "/v1/videos/sync",
+  "fields": {
+    "model": "auto",
+    "prompt": "A blue square moves slowly",
+    "seconds": "1",
+    "fps": "5"
+  },
+  "files": [
+    {
+      "name": "input_reference",
+      "path": "assets/blue.mp4",
+      "content_type": "video/mp4"
+    }
+  ]
+}

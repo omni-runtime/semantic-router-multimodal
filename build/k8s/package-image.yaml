@@ -1,0 +1,36 @@
+# One-shot K3s image transport. This is not mounted into any serving container.
+# The socket grants node runtime administration; keep this Job namespace-scoped,
+# run only the fixed export/import script, then delete this completed Pod.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sr-package-image-17
+  namespace: inference-stack-build
+  labels: {app.kubernetes.io/part-of: inference-stack}
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector: {kubernetes.io/hostname: gpu-node}
+  containers:
+    - name: package
+      image: ghcr.io/vllm-project/semantic-router/extproc@sha256:295a7da1ac432c950667083208a5a227e695efdc7b53502139d4c80c0b18b061
+      command: [bash, /workspace/scripts/package-k3s.sh]
+      workingDir: /workspace
+      securityContext:
+        runAsUser: 0
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: '2', memory: 1Gi}
+      volumeMounts:
+        - {name: project, mountPath: /workspace}
+        - {name: ctr, mountPath: /node/k3s, readOnly: true}
+        - {name: containerd, mountPath: /run/k3s/containerd/containerd.sock}
+  volumes:
+    - name: project
+      hostPath: {path: /srv/semantic-router-multimodal, type: Directory}
+    - name: ctr
+      hostPath: {path: /usr/local/bin/k3s, type: File}
+    - name: containerd
+      hostPath: {path: /run/k3s/containerd/containerd.sock, type: Socket}

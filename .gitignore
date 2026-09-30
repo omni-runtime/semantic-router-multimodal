@@ -1,0 +1,14 @@
+.work/
+dist/
+__pycache__/
+.venv/
+*.env
+
+.DS_Store
+reports/
+*.pem
+*.key
+*.oci.tar
+*.safetensors
+
+contracts/release.local.yaml

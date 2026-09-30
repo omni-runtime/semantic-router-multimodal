@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/vllm-project/semantic-router.git",
+  "commit": "5aa0145eb16ddf7edcc40a87793f61260e8c5084",
+  "patch_version": "0.1.0",
+  "go": "1.25.0",
+  "config_schema": "v0.3"
+}

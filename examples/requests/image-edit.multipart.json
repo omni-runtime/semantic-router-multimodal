@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/v1/images/edits",
+  "fields": {
+    "model": "auto",
+    "prompt": "Make the blue image brighter",
+    "url": "https://example.invalid/blue.png",
+    "response_format": "b64_json"
+  },
+  "files": []
+}
