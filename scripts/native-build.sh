@@ -18,7 +18,7 @@ bash tools/docker/check-native-abi.sh "$native/libcandle_semantic_router.so" "$n
 cd src/semantic-router
 go test -p 3 ./pkg/llmprotocol ./pkg/protocolcodec ./pkg/selection ./pkg/decision ./pkg/catalog -count=1
 go test -p 3 ./pkg/config ./pkg/configschema ./pkg/dsl -count=1
-go test -p 3 ./pkg/extproc -count=1 -run 'Test(NativeMLXVideo|NativeRealtime|NativeVideoBinding|NativeVideoSync|NativeChatOutput|NativeMultipart|NativeAudio|NativeImages|NativeSpeech|SpeechDispatch|SpeechChunks|SpeechProvider|RequireEntrypoint|SingleCandidate|CapabilitySelection|PrepareProviderDispatch|EntrypointRouting|ProcessBodyRoutingError)'
+go test -p 3 ./pkg/extproc -count=1 -run 'Test(NativeEmbeddings|NativeMLXVideo|NativeRealtime|NativeVideoBinding|NativeVideoSync|NativeChatOutput|NativeMultipart|NativeAudio|NativeImages|NativeSpeech|SpeechDispatch|SpeechChunks|SpeechProvider|RequireEntrypoint|SingleCandidate|CapabilitySelection|PrepareProviderDispatch|EntrypointRouting|ProcessBodyRoutingError)'
 mkdir -p /workspace/dist/linux-amd64
 go build -p 3 -trimpath -o /workspace/dist/linux-amd64/router ./cmd
 sha256sum /workspace/dist/linux-amd64/router

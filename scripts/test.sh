@@ -7,4 +7,4 @@ cd "$checkout/src/semantic-router"
 export CGO_ENABLED=1
 go test ./pkg/llmprotocol ./pkg/protocolcodec ./pkg/selection ./pkg/decision ./pkg/catalog -count=1
 go test ./pkg/config ./pkg/configschema ./pkg/dsl -count=1
-go test ./pkg/extproc -count=1 -run 'Test(NativeMLXVideo|NativeRealtime|NativeVideoBinding|NativeVideoSync|NativeChatOutput|NativeMultipart|NativeAudio|NativeImages|NativeSpeech|SpeechDispatch|SpeechChunks|SpeechProvider|RequireEntrypoint|SingleCandidate|CapabilitySelection|PrepareProviderDispatch|EntrypointRouting|ProcessBodyRoutingError)'
+go test ./pkg/extproc -count=1 -run 'Test(NativeEmbeddings|NativeMLXVideo|NativeRealtime|NativeVideoBinding|NativeVideoSync|NativeChatOutput|NativeMultipart|NativeAudio|NativeImages|NativeSpeech|SpeechDispatch|SpeechChunks|SpeechProvider|RequireEntrypoint|SingleCandidate|CapabilitySelection|PrepareProviderDispatch|EntrypointRouting|ProcessBodyRoutingError)'

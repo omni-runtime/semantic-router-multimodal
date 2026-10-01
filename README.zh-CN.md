@@ -10,6 +10,7 @@
 
 ## 能力
 
+- [原生 embedding 路由](docs/native-embeddings.md)：文本批量与多模态输入，向量空间、维度和批量上限校验。
 - 选模前的任务能力、上下文与范围过滤，包括只有一个候选的场景。
 - `auto`、`local-only`、`cloud-only` 入口；物理模型名不能绕过策略。
 - Chat 多模态输入/输出，Speech、Images、音频生成，以及 multipart 媒体任务。
@@ -43,7 +44,7 @@ docker build --platform linux/amd64 -f build/Dockerfile \
 
 ## 发布与验证
 
-当前为 **0.1.0-preview.10 源码预览版**。契约中的镜像摘要对应本地构建和导入的
+当前为 **0.1.0-preview.11 源码预览版**。契约中的镜像摘要对应本地构建和导入的
 验收产物，尚未推送公共镜像仓库；部署前需要自行构建、导入并验证镜像。
 
 已记录 AMD64、原生 ARM64 各 48 项 mock 网关检查，以及真实文本/云端和 H3 短视频验证。
@@ -65,3 +66,7 @@ H3 使用 `/v1/video/generations`；结果是原生 JSON/SSE，包含 RGB8 画�
 `secrets.env` 提供。本仓库继续维护构建锁定和 `release.yaml`，A 通过契约导入命令
 读取构建结果，无需在 A/B 两边手动修改同一套部署信息。
 详见[交付与配置边界](docs/image-delivery.md#configure-deployment-in-project-a)。
+
+Embedding 已接入本地 Qwen3-VL-Embedding-2B 与云端方舟豆包：两种架构各
+39/39 项模拟后端验收、17/17 项真实 embedding/聊天、8/8 项原有聊天/视觉和
+3/3 项 H3 回归通过。详见 [preview.11 验证记录](validation/preview.11.json)。

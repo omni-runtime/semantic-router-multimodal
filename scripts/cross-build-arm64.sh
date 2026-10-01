@@ -31,7 +31,7 @@ export GOMAXPROCS=${GOMAXPROCS:-3}
 cd .work/upstream/src/semantic-router
 go test -p 3 -exec "$runner" ./pkg/llmprotocol ./pkg/protocolcodec ./pkg/selection ./pkg/decision ./pkg/catalog -count=1
 go test -p 3 -exec "$runner" ./pkg/config ./pkg/configschema ./pkg/dsl -count=1
-go test -p 3 -exec "$runner" ./pkg/extproc -count=1 -run 'Test(NativeMLXVideo|NativeRealtime|NativeVideoBinding|NativeVideoSync|NativeChatOutput|NativeMultipart|NativeAudio|NativeImages|NativeSpeech|SpeechDispatch|SpeechChunks|SpeechProvider|RequireEntrypoint|SingleCandidate|CapabilitySelection|PrepareProviderDispatch|EntrypointRouting|ProcessBodyRoutingError)'
+go test -p 3 -exec "$runner" ./pkg/extproc -count=1 -run 'Test(NativeEmbeddings|NativeMLXVideo|NativeRealtime|NativeVideoBinding|NativeVideoSync|NativeChatOutput|NativeMultipart|NativeAudio|NativeImages|NativeSpeech|SpeechDispatch|SpeechChunks|SpeechProvider|RequireEntrypoint|SingleCandidate|CapabilitySelection|PrepareProviderDispatch|EntrypointRouting|ProcessBodyRoutingError)'
 go build -p 3 -trimpath -o /workspace/dist/linux-arm64/router ./cmd
 "$runner" /workspace/dist/linux-arm64/router --help > /workspace/dist/linux-arm64/runtime-help.txt 2>&1
 cd /workspace

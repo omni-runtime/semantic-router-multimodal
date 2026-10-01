@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add native cloud/local embedding request routing, vector-space isolation, batch/dimension limits, and text/token/multimodal protocol preservation.
+- Add Ark multimodal embedding adaptation and the pinned Qwen3-VL-Embedding-2B host engine, unified host settings, and validated preview.11 artifacts.
+- Validate 39 embedding gateway cases on each architecture, 17 real embedding/chat cases, eight existing chat/vision cases and three H3 cases; retain older full-media evidence separately.
+
 ## 0.1.0-preview.10 — initial public source publication
 
 - Native MLX-Serve H3 video task, codec, capability filtering, and dispatch.

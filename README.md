@@ -18,6 +18,7 @@ It is an independent integration project, not an official vLLM distribution.
 
 ## Features
 
+- [Native embedding routing](docs/native-embeddings.md): text batches and multimodal inputs, with vector-space, dimension and batch qualification.
 - Native task/capability filtering before model selection, including the single-candidate case.
 - Hard `auto` / `local-only` / `cloud-only` entrypoint and recipe enforcement.
 - Native chat multimodal input/output and same-wire media preservation.
@@ -72,7 +73,7 @@ libraries/ABI; a CGO-disabled build is not a supported router runtime.
 See [building and artifact delivery](docs/building.md) for prerequisites,
 CGO tests, OCI packaging and deployment-contract updates.
 
-> **Preview source release:** `0.1.0-preview.10`. Historical image digests in
+> **Preview source release:** `0.1.0-preview.11`. Historical image digests in
 > `release.yaml` identify tested local OCI artifacts, **not public registry packages**.
 > Build/import your own artifact and validate it before real deployment.
 
@@ -128,3 +129,11 @@ Configure deployment once in project A's `stack.yaml`, with credentials in its
 referenced private dotenv file. This repository continues to own native source,
 build locks and `release.yaml`; it does not need another copy of your host/model
 settings. See [contract delivery to project A](docs/image-delivery.md#configure-deployment-in-project-a).
+
+The embedding extension is included in [preview.11](release.yaml); its
+[acceptance report](validation/preview.11.json) records native AMD64/ARM64 gateway
+tests and real Qwen 2B/Ark embedding, chat and H3 checks.
+
+Embedding acceptance: **39/39 mock gateway cases on each architecture**, **17/17
+real embedding/chat cases**, **8/8 existing chat/vision cases**, and **3/3 H3
+cases**. See [preview.11 evidence and limits](validation/preview.11.json).

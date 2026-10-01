@@ -1,5 +1,5 @@
 diff --git a/config/catalog/resources/protocols.yaml b/config/catalog/resources/protocols.yaml
-index da0f69f0e..3014ed190 100644
+index da0f69f0e..fc5497c21 100644
 --- a/config/catalog/resources/protocols.yaml
 +++ b/config/catalog/resources/protocols.yaml
 @@ -1,3 +1,102 @@
@@ -105,7 +105,7 @@ index da0f69f0e..3014ed190 100644
  - id: openai/chat-completions@1
    display_name: OpenAI Chat Completions
    wire_format: openai.chat.v1
-@@ -34,3 +133,13 @@
+@@ -34,3 +133,33 @@
        method: GET
        path: /v1/models
    capabilities: [chat, streaming, tools, usage]
@@ -119,6 +119,26 @@ index da0f69f0e..3014ed190 100644
 +      method: POST
 +      path: /v1/video/generations
 +  capabilities: [video_generation, video_output, audio_output, image_input, streaming]
++
++- id: openai/embeddings@1
++  display_name: OpenAI-compatible Embeddings
++  wire_format: openai.embeddings.v1
++  default_base_path: /v1
++  operations:
++    - id: create
++      method: POST
++      path: /v1/embeddings
++  capabilities: [text, embedding, embedding_token_input, image_input, video_input]
++
++- id: ark/embeddings@1
++  display_name: Volcengine Ark Multimodal Embeddings
++  wire_format: ark.embeddings.v1
++  default_base_path: /api/v3
++  operations:
++    - id: create
++      method: POST
++      path: /api/v3/embeddings/multimodal
++  capabilities: [text, embedding, image_input]
 diff --git a/config/catalog/resources/providers/mlx-serve.yaml b/config/catalog/resources/providers/mlx-serve.yaml
 new file mode 100644
 index 000000000..af6a3e6ee
@@ -144,6 +164,23 @@ index 000000000..af6a3e6ee
 +  featured: false
 +conformance:
 +  status: unverified
+diff --git a/config/catalog/resources/providers/openai.yaml b/config/catalog/resources/providers/openai.yaml
+index cafb4552c..9e7f35153 100644
+--- a/config/catalog/resources/providers/openai.yaml
++++ b/config/catalog/resources/providers/openai.yaml
+@@ -5,10 +5,12 @@ category: model_api
+ support_tier: native
+ default_base_url: https://api.openai.com/v1
+ protocols:
++- openai/embeddings@1
+ - openai/chat-completions@1
+ - openai/responses@1
+ default_protocol: openai/chat-completions@1
+ supported_operations:
++- openai/embeddings@1#create
+ - openai/chat-completions@1#create
+ - openai/chat-completions@1#list_models
+ - openai/responses@1#create
 diff --git a/config/catalog/resources/providers/vllm-omni.yaml b/config/catalog/resources/providers/vllm-omni.yaml
 new file mode 100644
 index 000000000..eb51a4613
@@ -196,13 +233,14 @@ index 000000000..eb51a4613
 +conformance:
 +  status: unverified
 diff --git a/config/catalog/resources/providers/vllm.yaml b/config/catalog/resources/providers/vllm.yaml
-index add88ae73..adec1d005 100644
+index add88ae73..69a4963dc 100644
 --- a/config/catalog/resources/providers/vllm.yaml
 +++ b/config/catalog/resources/providers/vllm.yaml
-@@ -4,10 +4,16 @@ description: Connect a private vLLM endpoint.
+@@ -4,10 +4,18 @@ description: Connect a private vLLM endpoint.
  category: start_here
  support_tier: runtime
  protocols:
++- openai/embeddings@1
 +- vllm/realtime@1
 +- openai/audio-transcriptions@1
 +- openai/audio-translations@1
@@ -210,17 +248,66 @@ index add88ae73..adec1d005 100644
  - openai/responses@1
  default_protocol: openai/chat-completions@1
  supported_operations:
++- openai/embeddings@1#create
 +- vllm/realtime@1#create
 +- openai/audio-transcriptions@1#create
 +- openai/audio-translations@1#create
  - openai/chat-completions@1#create
  - openai/chat-completions@1#list_models
  - openai/responses@1#create
+diff --git a/config/catalog/resources/providers/volcengine-ark.yaml b/config/catalog/resources/providers/volcengine-ark.yaml
+index a448825a3..e154cc6f4 100644
+--- a/config/catalog/resources/providers/volcengine-ark.yaml
++++ b/config/catalog/resources/providers/volcengine-ark.yaml
+@@ -5,10 +5,12 @@ category: model_api
+ support_tier: native
+ default_base_url: https://ark.cn-beijing.volces.com/api/v3
+ protocols:
++- ark/embeddings@1
+ - openai/chat-completions@1
+ - openai/responses@1
+ default_protocol: openai/chat-completions@1
+ supported_operations:
++- ark/embeddings@1#create
+ - openai/chat-completions@1#create
+ - openai/responses@1#create
+ reasoning_transport: top_level_effort
 diff --git a/config/config.yaml b/config/config.yaml
-index 609c33798..23d48f44d 100644
+index 609c33798..c527df06d 100644
 --- a/config/config.yaml
 +++ b/config/config.yaml
-@@ -1788,6 +1788,8 @@ recipes:
+@@ -16,6 +16,14 @@ providers:
+     model: qwen3-8b
+     reasoning_effort: medium
+   models:
++    - name: reference-embedding
++      provider_model_id: reference-embedding
++      api_format: embeddings
++      backend_refs:
++        - name: embedding-primary
++          provider: vllm
++          base_url: http://127.0.0.1:8005/v1
++          weight: 1
+     - name: qwen3-8b
+       reasoning:
+         family: qwen3
+@@ -170,6 +178,15 @@ routing:
+         layer: 22
+         dimension: 768
+   modelCards:
++    - name: reference-embedding
++      description: Operator-declared embedding example; configure a matching backend before enabling it.
++      context_window_size: 8192
++      capabilities: [text, embedding]
++      embedding:
++        space: reference-embedding-v1
++        dimensions: 1024
++        min_dimensions: 256
++        max_batch_size: 32
+     - name: qwen3-8b
+       display_name: Qwen3 8B reference model
+       publisher: Alibaba Cloud
+@@ -1788,6 +1805,8 @@ recipes:
  
  global:
    router:
@@ -229,7 +316,7 @@ index 609c33798..23d48f44d 100644
      config_source: file
      strategy: priority
      auto_model_name: exhaustive-reference
-@@ -2089,6 +2091,10 @@ global:
+@@ -2089,6 +2108,10 @@ global:
          collection_name: router_replay
  
    stores:
@@ -241,7 +328,7 @@ index 609c33798..23d48f44d 100644
        backend_type: milvus
        enabled: true
 diff --git a/config/recipes/built-in/latest/catalog.yaml b/config/recipes/built-in/latest/catalog.yaml
-index e343ac71b..cdb8fbaa2 100644
+index e343ac71b..efa4dab40 100644
 --- a/config/recipes/built-in/latest/catalog.yaml
 +++ b/config/recipes/built-in/latest/catalog.yaml
 @@ -25,6 +25,127 @@ assets:
@@ -372,7 +459,7 @@ index e343ac71b..cdb8fbaa2 100644
  - id: openai/chat-completions@1
    display_name: OpenAI Chat Completions
    wire_format: openai.chat.v1
-@@ -76,6 +197,20 @@ protocols:
+@@ -76,6 +197,46 @@ protocols:
    - streaming
    - tools
    - usage
@@ -390,10 +477,36 @@ index e343ac71b..cdb8fbaa2 100644
 +  - audio_output
 +  - image_input
 +  - streaming
++- id: openai/embeddings@1
++  display_name: OpenAI-compatible Embeddings
++  wire_format: openai.embeddings.v1
++  default_base_path: /v1
++  operations:
++  - id: create
++    method: POST
++    path: /v1/embeddings
++  capabilities:
++  - text
++  - embedding
++  - embedding_token_input
++  - image_input
++  - video_input
++- id: ark/embeddings@1
++  display_name: Volcengine Ark Multimodal Embeddings
++  wire_format: ark.embeddings.v1
++  default_base_path: /api/v3
++  operations:
++  - id: create
++    method: POST
++    path: /api/v3/embeddings/multimodal
++  capabilities:
++  - text
++  - embedding
++  - image_input
  providers:
  - id: agnes
    display_name: Agnes AI
-@@ -1404,6 +1539,27 @@ providers:
+@@ -1404,6 +1565,27 @@ providers:
        status: claimed
        verified_at: '2026-09-07'
        source: https://docs.mistral.ai/models/mistral-large-3-25-12
@@ -421,7 +534,20 @@ index e343ac71b..cdb8fbaa2 100644
  - id: moonshot
    display_name: Moonshot AI
    description: Kimi models through an OpenAI-style API.
-@@ -2842,16 +2998,67 @@ providers:
+@@ -1618,10 +1800,12 @@ providers:
+   support_tier: native
+   default_base_url: https://api.openai.com/v1
+   protocols:
++  - openai/embeddings@1
+   - openai/chat-completions@1
+   - openai/responses@1
+   default_protocol: openai/chat-completions@1
+   supported_operations:
++  - openai/embeddings@1#create
+   - openai/chat-completions@1#create
+   - openai/chat-completions@1#list_models
+   - openai/responses@1#create
+@@ -2842,16 +3026,69 @@ providers:
    conformance:
      status: fixture_verified
      verified_at: '2026-09-04'
@@ -476,6 +602,7 @@ index e343ac71b..cdb8fbaa2 100644
    category: start_here
    support_tier: runtime
    protocols:
++  - openai/embeddings@1
 +  - vllm/realtime@1
 +  - openai/audio-transcriptions@1
 +  - openai/audio-translations@1
@@ -483,14 +610,141 @@ index e343ac71b..cdb8fbaa2 100644
    - openai/responses@1
    default_protocol: openai/chat-completions@1
    supported_operations:
++  - openai/embeddings@1#create
 +  - vllm/realtime@1#create
 +  - openai/audio-transcriptions@1#create
 +  - openai/audio-translations@1#create
    - openai/chat-completions@1#create
    - openai/chat-completions@1#list_models
    - openai/responses@1#create
+@@ -3626,10 +3863,12 @@ providers:
+   support_tier: native
+   default_base_url: https://ark.cn-beijing.volces.com/api/v3
+   protocols:
++  - ark/embeddings@1
+   - openai/chat-completions@1
+   - openai/responses@1
+   default_protocol: openai/chat-completions@1
+   supported_operations:
++  - ark/embeddings@1#create
+   - openai/chat-completions@1#create
+   - openai/responses@1#create
+   reasoning_transport: top_level_effort
+diff --git a/src/semantic-router/pkg/catalog/compiler.go b/src/semantic-router/pkg/catalog/compiler.go
+index e33740863..613f7f61c 100644
+--- a/src/semantic-router/pkg/catalog/compiler.go
++++ b/src/semantic-router/pkg/catalog/compiler.go
+@@ -580,6 +580,18 @@ func setOverlayString(effective *EffectiveModelCard, name string, value *string,
+ }
+ 
+ func applyCardLimitOverlay(effective *EffectiveModelCard, overlay ModelCardOverlay) error {
++	if overlay.Embedding != nil {
++		value := *overlay.Embedding
++		value.AllowedDimensions = append([]int(nil), overlay.Embedding.AllowedDimensions...)
++		if !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$`).MatchString(value.Space) || value.Dimensions < 1 || value.Dimensions > 65536 || value.MinDimensions < 0 || value.MinDimensions > value.Dimensions || value.MaxBatchSize < 1 || value.MaxBatchSize > 2048 {
++			return fmt.Errorf("embedding requires a space, valid dimensions, and a batch limit")
++		}
++		if err := value.ValidateAllowedDimensions(); err != nil {
++			return err
++		}
++		effective.Card.Embedding = &value
++		effective.Provenance["embedding"] = SourceOperator
++	}
+ 	if overlay.ContextWindowSize != nil {
+ 		if *overlay.ContextWindowSize <= 0 {
+ 			return fmt.Errorf("context_window_size must be positive")
+diff --git a/src/semantic-router/pkg/catalog/embedding.go b/src/semantic-router/pkg/catalog/embedding.go
+new file mode 100644
+index 000000000..9d1448b80
+--- /dev/null
++++ b/src/semantic-router/pkg/catalog/embedding.go
+@@ -0,0 +1,34 @@
++package catalog
++
++import (
++	"fmt"
++	"slices"
++)
++
++func (e EmbeddingModel) AllowsDimensions(dimensions int) bool {
++	return len(e.AllowedDimensions) == 0 || slices.Contains(e.AllowedDimensions, dimensions)
++}
++
++func (e EmbeddingModel) ValidateAllowedDimensions() error {
++	if e.ImageTokenEstimate < 0 || e.ImageTokenEstimate > 65536 {
++		return fmt.Errorf("image_token_estimate must be between 1 and 65536 when configured")
++	}
++	if len(e.AllowedDimensions) == 0 {
++		return nil
++	}
++	if len(e.AllowedDimensions) > 65536 || !e.AllowsDimensions(e.Dimensions) {
++		return fmt.Errorf("allowed_dimensions must include the default dimensions")
++	}
++	minimum := e.MinDimensions
++	if minimum == 0 {
++		minimum = e.Dimensions
++	}
++	seen := map[int]bool{}
++	for _, dimensions := range e.AllowedDimensions {
++		if dimensions < minimum || dimensions > e.Dimensions || seen[dimensions] {
++			return fmt.Errorf("allowed_dimensions must be unique values within the declared range")
++		}
++		seen[dimensions] = true
++	}
++	return nil
++}
+diff --git a/src/semantic-router/pkg/catalog/registry.go b/src/semantic-router/pkg/catalog/registry.go
+index a7b176943..cd85e02a1 100644
+--- a/src/semantic-router/pkg/catalog/registry.go
++++ b/src/semantic-router/pkg/catalog/registry.go
+@@ -309,6 +309,11 @@ func cloneReasoningFamily(value ReasoningFamilyDefinition) ReasoningFamilyDefini
+ }
+ 
+ func cloneModel(value ModelCard) ModelCard {
++	if value.Embedding != nil {
++		copy := *value.Embedding
++		copy.AllowedDimensions = append([]int(nil), value.Embedding.AllowedDimensions...)
++		value.Embedding = &copy
++	}
+ 	value.Capabilities = append([]string(nil), value.Capabilities...)
+ 	value.Modalities.Input = append([]string(nil), value.Modalities.Input...)
+ 	value.Modalities.Output = append([]string(nil), value.Modalities.Output...)
+diff --git a/src/semantic-router/pkg/catalog/types.go b/src/semantic-router/pkg/catalog/types.go
+index bc223fe23..4ed608842 100644
+--- a/src/semantic-router/pkg/catalog/types.go
++++ b/src/semantic-router/pkg/catalog/types.go
+@@ -296,7 +296,19 @@ type ModelRole struct {
+ 	RecommendedPool   []string `json:"recommended_pool"`
+ }
+ 
++// EmbeddingModel describes an operator-declared vector space and engine limits.
++// AllowedDimensions, when set, narrows the inclusive dimension range.
++type EmbeddingModel struct {
++	ImageTokenEstimate int    `json:"image_token_estimate,omitempty" yaml:"image_token_estimate,omitempty"`
++	AllowedDimensions  []int  `json:"allowed_dimensions,omitempty" yaml:"allowed_dimensions,omitempty"`
++	Space              string `json:"space" yaml:"space"`
++	Dimensions         int    `json:"dimensions" yaml:"dimensions"`
++	MinDimensions      int    `json:"min_dimensions,omitempty" yaml:"min_dimensions,omitempty"`
++	MaxBatchSize       int    `json:"max_batch_size" yaml:"max_batch_size"`
++}
++
+ type ModelCard struct {
++	Embedding       *EmbeddingModel      `json:"embedding,omitempty"`
+ 	ID              string               `json:"id"`
+ 	DisplayName     string               `json:"display_name"`
+ 	Description     string               `json:"description"`
+@@ -328,7 +340,8 @@ type ModelCard struct {
+ // ModelCardOverlay is a presence-aware handwritten card or built-in override.
+ // Pointer fields distinguish an intentional zero/empty override from omission.
+ type ModelCardOverlay struct {
+-	Name string `json:"name" yaml:"name"`
++	Embedding *EmbeddingModel `json:"embedding,omitempty" yaml:"embedding,omitempty"`
++	Name      string          `json:"name" yaml:"name"`
+ 	// BuiltIn is an internal presence-aware binding hint. A nil value keeps the
+ 	// catalog package's direct-call behavior; config adapters set it explicitly
+ 	// so a custom alias that happens to equal a built-in ID stays custom.
 diff --git a/src/semantic-router/pkg/catalog/zz_generated_catalog.go b/src/semantic-router/pkg/catalog/zz_generated_catalog.go
-index 582ec25b7..34e5eb716 100644
+index 582ec25b7..d02948568 100644
 --- a/src/semantic-router/pkg/catalog/zz_generated_catalog.go
 +++ b/src/semantic-router/pkg/catalog/zz_generated_catalog.go
 @@ -93858,6 +93858,193 @@ const builtInCatalogJSON = `{
@@ -687,7 +941,7 @@ index 582ec25b7..34e5eb716 100644
      {
        "capabilities": [
          "chat",
-@@ -93932,6 +94119,26 @@ const builtInCatalogJSON = `{
+@@ -93932,6 +94119,64 @@ const builtInCatalogJSON = `{
          }
        ],
        "wire_format": "anthropic.messages.v1"
@@ -711,10 +965,48 @@ index 582ec25b7..34e5eb716 100644
 +        }
 +      ],
 +      "wire_format": "mlx.video.v1"
++    },
++    {
++      "capabilities": [
++        "text",
++        "embedding",
++        "embedding_token_input",
++        "image_input",
++        "video_input"
++      ],
++      "default_base_path": "/v1",
++      "display_name": "OpenAI-compatible Embeddings",
++      "id": "openai/embeddings@1",
++      "operations": [
++        {
++          "id": "create",
++          "method": "POST",
++          "path": "/v1/embeddings"
++        }
++      ],
++      "wire_format": "openai.embeddings.v1"
++    },
++    {
++      "capabilities": [
++        "text",
++        "embedding",
++        "image_input"
++      ],
++      "default_base_path": "/api/v3",
++      "display_name": "Volcengine Ark Multimodal Embeddings",
++      "id": "ark/embeddings@1",
++      "operations": [
++        {
++          "id": "create",
++          "method": "POST",
++          "path": "/api/v3/embeddings/multimodal"
++        }
++      ],
++      "wire_format": "ark.embeddings.v1"
      }
    ],
    "providers": [
-@@ -95703,6 +95910,34 @@ const builtInCatalogJSON = `{
+@@ -95703,6 +95948,34 @@ const builtInCatalogJSON = `{
          "openai/chat-completions@1#list_models"
        ]
      },
@@ -749,7 +1041,22 @@ index 582ec25b7..34e5eb716 100644
      {
        "auth": {
          "header": "Authorization",
-@@ -97631,6 +97866,58 @@ const builtInCatalogJSON = `{
+@@ -96147,12 +96420,14 @@ const builtInCatalogJSON = `{
+         "monogram": "O"
+       },
+       "protocols": [
++        "openai/embeddings@1",
+         "openai/chat-completions@1",
+         "openai/responses@1"
+       ],
+       "reasoning_transport": "top_level_effort",
+       "support_tier": "native",
+       "supported_operations": [
++        "openai/embeddings@1#create",
+         "openai/chat-completions@1#create",
+         "openai/chat-completions@1#list_models",
+         "openai/responses@1#create",
+@@ -97631,6 +97906,58 @@ const builtInCatalogJSON = `{
          "openai/chat-completions@1#create"
        ]
      },
@@ -808,10 +1115,11 @@ index 582ec25b7..34e5eb716 100644
      {
        "auth": {
          "header": "Authorization",
-@@ -98677,11 +98964,17 @@ const builtInCatalogJSON = `{
+@@ -98677,11 +99004,19 @@ const builtInCatalogJSON = `{
          "monogram": "v"
        },
        "protocols": [
++        "openai/embeddings@1",
 +        "vllm/realtime@1",
 +        "openai/audio-transcriptions@1",
 +        "openai/audio-translations@1",
@@ -820,20 +1128,48 @@ index 582ec25b7..34e5eb716 100644
        ],
        "support_tier": "runtime",
        "supported_operations": [
++        "openai/embeddings@1#create",
 +        "vllm/realtime@1#create",
 +        "openai/audio-transcriptions@1#create",
 +        "openai/audio-translations@1#create",
          "openai/chat-completions@1#create",
          "openai/chat-completions@1#list_models",
          "openai/responses@1#create",
+@@ -98742,12 +99077,14 @@ const builtInCatalogJSON = `{
+         "monogram": "S"
+       },
+       "protocols": [
++        "ark/embeddings@1",
+         "openai/chat-completions@1",
+         "openai/responses@1"
+       ],
+       "reasoning_transport": "top_level_effort",
+       "support_tier": "native",
+       "supported_operations": [
++        "ark/embeddings@1#create",
+         "openai/chat-completions@1#create",
+         "openai/responses@1#create"
+       ]
 diff --git a/src/semantic-router/pkg/config/canonical_catalog.go b/src/semantic-router/pkg/config/canonical_catalog.go
-index cf0aa585d..1afbba16f 100644
+index cf0aa585d..8c7caf405 100644
 --- a/src/semantic-router/pkg/config/canonical_catalog.go
 +++ b/src/semantic-router/pkg/config/canonical_catalog.go
-@@ -387,6 +387,28 @@ func apiFormatForProtocol(protocol string) (string, error) {
+@@ -89,6 +89,7 @@ func modelParamsFromEffectiveModel(model modelcatalog.EffectiveModel, qualityInd
+ 		MaxOutputTokens:      card.Limits.MaxOutputTokens,
+ 		Description:          card.Description,
+ 		Capabilities:         declaredCardCapabilities(model.Card),
++		Embedding:            card.Embedding,
+ 		LoRAs:                loraAdaptersFromEffectiveCard(model.Card),
+ 		Tags:                 append([]string(nil), card.Tags...),
+ 		ReasoningFamily:      card.ReasoningFamily,
+@@ -387,6 +388,32 @@ func apiFormatForProtocol(protocol string) (string, error) {
  		return APIFormatResponses, nil
  	case "anthropic/messages@1":
  		return APIFormatAnthropic, nil
++	case "ark/embeddings@1":
++		return APIFormatArkEmbeddings, nil
++	case "openai/embeddings@1":
++		return APIFormatEmbeddings, nil
 +	case "mlx/video@1":
 +		return APIFormatMLXVideo, nil
 +	case "omni/audio-generate@1":
@@ -860,7 +1196,7 @@ index cf0aa585d..1afbba16f 100644
  		return "", fmt.Errorf("protocol %q has no runtime codec", protocol)
  	}
 diff --git a/src/semantic-router/pkg/config/canonical_catalog_input.go b/src/semantic-router/pkg/config/canonical_catalog_input.go
-index c614f062e..b1a4b0bfe 100644
+index c614f062e..da37f9d7f 100644
 --- a/src/semantic-router/pkg/config/canonical_catalog_input.go
 +++ b/src/semantic-router/pkg/config/canonical_catalog_input.go
 @@ -81,7 +81,7 @@ func (builder *catalogInputBuilder) addModel(model CanonicalProviderModel, model
@@ -872,10 +1208,14 @@ index c614f062e..b1a4b0bfe 100644
  			modelIndex, model.APIFormat,
  		)
  	}
-@@ -285,6 +285,28 @@ func catalogProtocolForAPIFormat(apiFormat string) string {
+@@ -285,6 +285,32 @@ func catalogProtocolForAPIFormat(apiFormat string) string {
  		return "anthropic/messages@1"
  	case APIFormatOpenAI:
  		return "openai/chat-completions@1"
++	case APIFormatArkEmbeddings:
++		return "ark/embeddings@1"
++	case APIFormatEmbeddings:
++		return "openai/embeddings@1"
 +	case APIFormatMLXVideo:
 +		return "mlx/video@1"
 +	case APIFormatAudioGenerate:
@@ -901,11 +1241,55 @@ index c614f062e..b1a4b0bfe 100644
  	default:
  		return ""
  	}
+@@ -333,6 +359,11 @@ func applyCatalogCardStrings(card RoutingModel, overlay *modelcatalog.ModelCardO
+ }
+ 
+ func applyCatalogCardLimits(card RoutingModel, overlay *modelcatalog.ModelCardOverlay) {
++	if card.Embedding != nil {
++		value := *card.Embedding
++		value.AllowedDimensions = append([]int(nil), card.Embedding.AllowedDimensions...)
++		overlay.Embedding = &value
++	}
+ 	if card.ContextWindowSize > 0 {
+ 		value := card.ContextWindowSize
+ 		overlay.ContextWindowSize = &value
+diff --git a/src/semantic-router/pkg/config/canonical_config.go b/src/semantic-router/pkg/config/canonical_config.go
+index 73ca55aae..48121745d 100644
+--- a/src/semantic-router/pkg/config/canonical_config.go
++++ b/src/semantic-router/pkg/config/canonical_config.go
+@@ -122,6 +122,7 @@ type CanonicalProjections struct {
+ 
+ // RoutingModel defines the logical model catalog available to routing decisions.
+ type RoutingModel struct {
++	Embedding         *modelcatalog.EmbeddingModel       `yaml:"embedding,omitempty"`
+ 	Name              string                             `yaml:"name"`
+ 	DisplayName       string                             `yaml:"display_name,omitempty"`
+ 	Publisher         string                             `yaml:"publisher,omitempty"`
 diff --git a/src/semantic-router/pkg/config/canonical_export.go b/src/semantic-router/pkg/config/canonical_export.go
-index 0bc83ae81..5dcf07e84 100644
+index 0bc83ae81..5c34cf6cf 100644
 --- a/src/semantic-router/pkg/config/canonical_export.go
 +++ b/src/semantic-router/pkg/config/canonical_export.go
-@@ -300,6 +300,7 @@ func CanonicalGlobalFromRouterConfig(cfg *RouterConfig) *CanonicalGlobal {
+@@ -202,6 +202,11 @@ func applyOperatorModelCardLimits(
+ 	card modelcatalog.ModelCard,
+ 	provenance modelcatalog.FieldProvenance,
+ ) {
++	if provenance["embedding"] == "operator" && card.Embedding != nil {
++		value := *card.Embedding
++		value.AllowedDimensions = append([]int(nil), card.Embedding.AllowedDimensions...)
++		model.Embedding = &value
++	}
+ 	if provenance["limits.context_window_size"] == "operator" {
+ 		model.ContextWindowSize = card.Limits.ContextWindowSize
+ 	}
+@@ -279,6 +284,7 @@ func routingModelsFromRuntimeConfig(cfg *RouterConfig) []RoutingModel {
+ 			MaxOutputTokens:   params.MaxOutputTokens,
+ 			Description:       params.Description,
+ 			Capabilities:      append([]string(nil), params.Capabilities...),
++			Embedding:         params.Embedding,
+ 			LoRAs:             copyLoRAAdapters(params.LoRAs),
+ 			Tags:              append([]string(nil), params.Tags...),
+ 			Modality:          params.Modality,
+@@ -300,6 +306,7 @@ func CanonicalGlobalFromRouterConfig(cfg *RouterConfig) *CanonicalGlobal {
  			Strategy:                  cfg.Strategy,
  			AutoModelName:             cfg.AutoModelName,
  			AutoModelNames:            canonicalAutoModelNames(cfg.AutoModelNames),
@@ -913,7 +1297,7 @@ index 0bc83ae81..5dcf07e84 100644
  			IncludeConfigModelsInList: cfg.IncludeConfigModelsInList,
  			ClearRouteCache:           cfg.ClearRouteCache,
  			StreamedBody: CanonicalStreamedBody{
-@@ -323,6 +324,7 @@ func CanonicalGlobalFromRouterConfig(cfg *RouterConfig) *CanonicalGlobal {
+@@ -323,6 +330,7 @@ func CanonicalGlobalFromRouterConfig(cfg *RouterConfig) *CanonicalGlobal {
  			StartupStatus: cfg.StartupStatus,
  		},
  		Stores: CanonicalStoreGlobal{
@@ -1061,10 +1445,10 @@ index 000000000..913bac25d
 +	}
 +}
 diff --git a/src/semantic-router/pkg/config/config.go b/src/semantic-router/pkg/config/config.go
-index a3d020cd1..f86b03889 100644
+index a3d020cd1..f3ed7289b 100644
 --- a/src/semantic-router/pkg/config/config.go
 +++ b/src/semantic-router/pkg/config/config.go
-@@ -81,7 +81,17 @@ const (
+@@ -81,7 +81,19 @@ const (
  	// APIFormatImages selects the DALL-E-compatible image-generation dialect
  	// (/v1/images/generations), used to sink responses hosted image_generation
  	// requests to diffusion backends.
@@ -1078,12 +1462,14 @@ index a3d020cd1..f86b03889 100644
 +	APIFormatSpeechStream  = "speech_stream"
 +	APIFormatVideo         = "video"
 +	APIFormatSpeech        = "speech"
++	APIFormatEmbeddings    = "embeddings"
++	APIFormatArkEmbeddings = "ark_embeddings"
 +	APIFormatMLXVideo      = "mlx_video"
 +	APIFormatAudioGenerate = "audio_generate"
  )
  
  // ClientProtocol* identifies the inbound wire format; distinct from APIFormat (upstream backend).
-@@ -93,8 +103,9 @@ const (
+@@ -93,8 +105,9 @@ const (
  
  // RouterConfig represents the main configuration for the LLM Router.
  type RouterConfig struct {
@@ -1095,7 +1481,7 @@ index a3d020cd1..f86b03889 100644
  	// SkipExternalAssetValidation is set only for untrusted read-only
  	// validation requests, which must never trigger filesystem reads.
  	SkipExternalAssetValidation bool `yaml:"-" json:"-"`
-@@ -234,6 +245,7 @@ type LLMObservability struct {
+@@ -234,6 +247,7 @@ type LLMObservability struct {
  type RouterOptions struct {
  	AutoModelName             string               `yaml:"auto_model_name,omitempty"`
  	AutoModelNames            []string             `yaml:"auto_model_names,omitempty"`
@@ -1103,6 +1489,90 @@ index a3d020cd1..f86b03889 100644
  	IncludeConfigModelsInList bool                 `yaml:"include_config_models_in_list,omitempty"`
  	ClearRouteCache           bool                 `yaml:"clear_route_cache"`
  	StreamedBodyMode          bool                 `yaml:"streamed_body_mode,omitempty"`
+diff --git a/src/semantic-router/pkg/config/embedding_backend_contract.go b/src/semantic-router/pkg/config/embedding_backend_contract.go
+new file mode 100644
+index 000000000..84a50437c
+--- /dev/null
++++ b/src/semantic-router/pkg/config/embedding_backend_contract.go
+@@ -0,0 +1,32 @@
++package config
++
++import (
++	"fmt"
++	"regexp"
++	"slices"
++)
++
++var embeddingSpaceID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$`)
++
++func validateEmbeddingBackendContracts(cfg *RouterConfig) error {
++	for name, model := range cfg.ModelConfig {
++		e := model.Embedding
++		isEmbedding := (model.APIFormat == APIFormatEmbeddings || model.APIFormat == APIFormatArkEmbeddings)
++		if !isEmbedding && e == nil {
++			continue
++		}
++		if !isEmbedding || e == nil || !slices.Contains(model.Capabilities, "embedding") {
++			return fmt.Errorf("model %q: embeddings requires matching api_format, embedding capability, space and limits", name)
++		}
++		if !embeddingSpaceID.MatchString(e.Space) || e.Dimensions < 1 || e.Dimensions > 65536 || e.MinDimensions < 0 || e.MinDimensions > e.Dimensions || e.MaxBatchSize < 1 || e.MaxBatchSize > 2048 {
++			return fmt.Errorf("model %q: invalid embedding space, dimensions or batch limit", name)
++		}
++		if err := e.ValidateAllowedDimensions(); err != nil {
++			return fmt.Errorf("model %q: %w", name, err)
++		}
++		if model.MaxOutputTokens != 0 {
++			return fmt.Errorf("model %q: embeddings has no generation token budget", name)
++		}
++	}
++	return nil
++}
+diff --git a/src/semantic-router/pkg/config/embedding_backend_contract_test.go b/src/semantic-router/pkg/config/embedding_backend_contract_test.go
+new file mode 100644
+index 000000000..215371e3f
+--- /dev/null
++++ b/src/semantic-router/pkg/config/embedding_backend_contract_test.go
+@@ -0,0 +1,40 @@
++package config
++
++import (
++	"github.com/stretchr/testify/require"
++	"gopkg.in/yaml.v2"
++	"testing"
++)
++
++func TestEmbeddingBackendCanonicalRoundTrip(t *testing.T) {
++	data := []byte(`version: v0.3
++providers:
++  models:
++    - name: embedding-test
++      provider_model_id: Qwen/Qwen3-VL-Embedding-8B
++      api_format: embeddings
++      backend_refs:
++        - name: local
++          provider: vllm
++          base_url: http://localhost:8000/v1
++          weight: 1
++routing:
++  modelCards:
++    - name: embedding-test
++      context_window_size: 32768
++      capabilities: [text, embedding, image_input, video_input]
++      embedding: {space: test-v1, dimensions: 4096, min_dimensions: 64, max_batch_size: 1}
++`)
++	cfg, err := ParseYAMLBytes(data)
++	require.NoError(t, err)
++	e := cfg.ModelConfig["embedding-test"].Embedding
++	require.NotNil(t, e)
++	require.Equal(t, "test-v1", e.Space)
++	canonical := CanonicalConfigFromRouterConfig(cfg)
++	serialized, err := yaml.Marshal(canonical)
++	require.NoError(t, err)
++	again, err := ParseYAMLBytes(serialized)
++	require.NoError(t, err)
++	require.Equal(t, e, again.ModelConfig["embedding-test"].Embedding)
++	require.Equal(t, APIFormatEmbeddings, again.ModelConfig["embedding-test"].APIFormat)
++}
 diff --git a/src/semantic-router/pkg/config/media_bindings.go b/src/semantic-router/pkg/config/media_bindings.go
 new file mode 100644
 index 000000000..c275892d9
@@ -1157,8 +1627,28 @@ index 000000000..c275892d9
 +	}
 +	return nil
 +}
+diff --git a/src/semantic-router/pkg/config/model_config_types.go b/src/semantic-router/pkg/config/model_config_types.go
+index 6d4b9f5e1..76d08b971 100644
+--- a/src/semantic-router/pkg/config/model_config_types.go
++++ b/src/semantic-router/pkg/config/model_config_types.go
+@@ -415,10 +415,11 @@ type ModelPricing struct {
+ }
+ 
+ type ModelParams struct {
+-	PreferredEndpoints []string            `yaml:"preferred_endpoints,omitempty"`
+-	Pricing            ModelPricing        `yaml:"pricing,omitempty"`
+-	Reliability        ProviderReliability `yaml:"reliability,omitempty"`
+-	ReasoningFamily    string              `yaml:"reasoning_family,omitempty"`
++	Embedding          *modelcatalog.EmbeddingModel `yaml:"embedding,omitempty"`
++	PreferredEndpoints []string                     `yaml:"preferred_endpoints,omitempty"`
++	Pricing            ModelPricing                 `yaml:"pricing,omitempty"`
++	Reliability        ProviderReliability          `yaml:"reliability,omitempty"`
++	ReasoningFamily    string                       `yaml:"reasoning_family,omitempty"`
+ 	// AuthoredModel preserves the typed user declaration across materialization.
+ 	// Effective catalog defaults must not leak into exported user YAML, and an
+ 	// api_key_env reference must not be replaced by its expanded secret value.
 diff --git a/src/semantic-router/pkg/config/validator_dispatch.go b/src/semantic-router/pkg/config/validator_dispatch.go
-index bb46a20b1..d12933421 100644
+index bb46a20b1..df6a7727a 100644
 --- a/src/semantic-router/pkg/config/validator_dispatch.go
 +++ b/src/semantic-router/pkg/config/validator_dispatch.go
 @@ -16,6 +16,7 @@ const (
@@ -1169,8 +1659,16 @@ index bb46a20b1..d12933421 100644
  		validateRoutingPreviewConfig,
  		validateModelPricingContracts,
  		validateReasoningFamilyContracts,
+@@ -23,6 +24,7 @@ var (
+ 		validateGlobalSemanticCacheContracts,
+ 		validateGlobalMemoryContracts,
+ 		validateEmbeddingModelContracts,
++		validateEmbeddingBackendContracts,
+ 		validateGlobalModalityContracts,
+ 		validateModelSelectionConfig,
+ 		validateCategoryModelBackendContracts,
 diff --git a/src/semantic-router/pkg/configschema/router-config-v0.3.schema.json b/src/semantic-router/pkg/configschema/router-config-v0.3.schema.json
-index 75d2e5140..0ccf6afcc 100644
+index 75d2e5140..ef1a11770 100644
 --- a/src/semantic-router/pkg/configschema/router-config-v0.3.schema.json
 +++ b/src/semantic-router/pkg/configschema/router-config-v0.3.schema.json
 @@ -1147,6 +1147,9 @@
@@ -1193,7 +1691,41 @@ index 75d2e5140..0ccf6afcc 100644
          "response_cache": {
            "$ref": "#/$defs/ResponseCacheStoreConfig"
          },
-@@ -3585,6 +3591,36 @@
+@@ -2449,6 +2455,33 @@
+       "additionalProperties": false,
+       "type": "object"
+     },
++    "EmbeddingModel": {
++      "properties": {
++        "image_token_estimate": {
++          "type": "integer"
++        },
++        "allowed_dimensions": {
++          "items": {
++            "type": "integer"
++          },
++          "type": "array"
++        },
++        "space": {
++          "type": "string"
++        },
++        "dimensions": {
++          "type": "integer"
++        },
++        "min_dimensions": {
++          "type": "integer"
++        },
++        "max_batch_size": {
++          "type": "integer"
++        }
++      },
++      "additionalProperties": false,
++      "type": "object"
++    },
+     "EmbeddingModels": {
+       "properties": {
+         "qwen3_model_path": {
+@@ -3585,6 +3618,36 @@
        "additionalProperties": false,
        "type": "object"
      },
@@ -1230,7 +1762,17 @@ index 75d2e5140..0ccf6afcc 100644
      "MemoryConfig": {
        "properties": {
          "enabled": {
-@@ -7822,6 +7858,15 @@
+@@ -6191,6 +6254,9 @@
+     },
+     "RoutingModel": {
+       "properties": {
++        "embedding": {
++          "$ref": "#/$defs/EmbeddingModel"
++        },
+         "name": {
+           "type": "string"
+         },
+@@ -7822,6 +7888,15 @@
            "startup_status"
          ]
        },
@@ -1246,6 +1788,51 @@ index 75d2e5140..0ccf6afcc 100644
        {
          "key": "response_cache",
          "layer": "stores",
+diff --git a/src/semantic-router/pkg/extproc/candidate_requirements.go b/src/semantic-router/pkg/extproc/candidate_requirements.go
+index 4891827dc..b52425500 100644
+--- a/src/semantic-router/pkg/extproc/candidate_requirements.go
++++ b/src/semantic-router/pkg/extproc/candidate_requirements.go
+@@ -26,7 +26,7 @@ func (r *OpenAIRouter) candidateRequirements(ctx *RequestContext) *config.Candid
+ }
+ 
+ func (r *OpenAIRouter) validateModelDemand(requirements *config.CandidateRequirements, model string, demand selection.CandidateDemand) error {
+-	if !selection.CandidateRequirementsEnabled(requirements) {
++	if !selection.CandidateRequirementsEnabled(requirements) && !demand.Embedding {
+ 		return nil
+ 	}
+ 	params, _ := selection.CandidateModelParams(r.Config.ModelConfig, nil, model)
+@@ -98,6 +98,13 @@ func eligibleModelRefsByDemand(refs []config.ModelRef, admit func(config.ModelRe
+ }
+ 
+ func (r *OpenAIRouter) decisionEligibleModelRefs(decision *config.Decision, ctx *RequestContext) ([]config.ModelRef, error) {
++	if ctx.SemanticRequest != nil && ctx.SemanticRequest.Embedding != nil {
++		view := *ctx
++		view.VSRSelectedDecision = decision
++		if err := r.qualifyEmbeddingSpace(&view); err != nil {
++			return nil, err
++		}
++	}
+ 	if decisionUsesAutomaticOutput(ctx.SemanticRequest, decision) {
+ 		return r.automaticEligibleRefs(decision.ModelRefs, ctx)
+ 	}
+@@ -127,6 +134,17 @@ func (r *OpenAIRouter) modelInRefs(model string, refs []config.ModelRef) bool {
+ // Strict dispatch remains inside the assigned inventory. Internal algorithm
+ // helpers are allowed only when explicitly declared by this decision.
+ func (r *OpenAIRouter) validateDispatchRequirements(request *llmprotocol.Request, dispatch *providerDispatch, ctx *RequestContext) error {
++	if request != nil && request.Embedding != nil {
++		if err := r.qualifyEmbeddingSpace(ctx); err != nil {
++			return err
++		}
++		if err := r.validateModelDemand(nil, dispatch.logicalModel, selection.DemandForRequest(request)); err != nil {
++			return err
++		}
++		if request.Embedding.Space == "" {
++			request.Embedding.Space = r.Config.ModelConfig[dispatch.logicalModel].Embedding.Space
++		}
++	}
+ 	requirements := r.candidateRequirements(ctx)
+ 	if !selection.CandidateRequirementsEnabled(requirements) {
+ 		return nil
 diff --git a/src/semantic-router/pkg/extproc/processor_core.go b/src/semantic-router/pkg/extproc/processor_core.go
 index 75a6c4162..3f8108a68 100644
 --- a/src/semantic-router/pkg/extproc/processor_core.go
@@ -1261,9 +1848,213 @@ index 75a6c4162..3f8108a68 100644
  	var protocolError *llmprotocol.ProtocolError
  	if !errors.As(err, &protocolError) {
  		return nil, false
+diff --git a/src/semantic-router/pkg/extproc/processor_embeddings_response.go b/src/semantic-router/pkg/extproc/processor_embeddings_response.go
+new file mode 100644
+index 000000000..844367732
+--- /dev/null
++++ b/src/semantic-router/pkg/extproc/processor_embeddings_response.go
+@@ -0,0 +1,21 @@
++package extproc
++
++import (
++	ext_proc "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/protocolcodec"
++)
++
++// Embedding transport has no assistant output, generation cache or response
++// safety text. Failed requests retain the provider's actual status and JSON.
++func (r *OpenAIRouter) handleEmbeddingResponseBody(body []byte, ctx *RequestContext) *ext_proc.ProcessingResponse {
++	if isUpstreamTransportError(ctx) {
++		return buildResponseBodyContinueResponse(nil, nil)
++	}
++	encoded, err := protocolcodec.TranslateEmbeddingResponse(body, ctx.TargetFormat, ctx.SourceFormat, ctx.SemanticRequest.Embedding)
++	if err != nil {
++		return r.createErrorResponse(502, "The selected model returned an invalid embedding response")
++	}
++	response := buildResponseBodyContinueResponse(nil, nil)
++	setResponseBodyMutation(response, encoded)
++	return response
++}
+diff --git a/src/semantic-router/pkg/extproc/processor_embeddings_test.go b/src/semantic-router/pkg/extproc/processor_embeddings_test.go
+new file mode 100644
+index 000000000..bd0ebf0f8
+--- /dev/null
++++ b/src/semantic-router/pkg/extproc/processor_embeddings_test.go
+@@ -0,0 +1,171 @@
++package extproc
++
++import (
++	"encoding/json"
++	ext_proc "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
++	"github.com/stretchr/testify/require"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/catalog"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/config"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/protocolcodec"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/selection"
++	"testing"
++)
++
++func TestNativeEmbeddingsDispatchAndPassthrough(t *testing.T) {
++	r, model := routingTestRouterForFormat(llmprotocol.OpenAIChatV1)
++	request, _, _, err := protocolcodec.NewBuiltinEngine().DecodeRequest(llmprotocol.OpenAIEmbeddingsV1, []byte(`{"model":"auto","input":["first","second"],"dimensions":64,"encoding_format":"base64","user":"test","embedding_space":"fixture-v1"}`))
++	require.NoError(t, err)
++	ctx := routingTestContext(llmprotocol.OpenAIEmbeddingsV1, &request)
++	detectSourceFormat("/v1/embeddings?trace=1", ctx)
++	require.Equal(t, llmprotocol.OpenAIEmbeddingsV1, ctx.SourceFormat)
++	require.Nil(t, r.validateRequestHeaders("POST", "/v1/embeddings"))
++	_, err = r.prepareProviderDispatch(&request, model, "", false, ctx)
++	require.Error(t, err, "chat must never accept embedding requests")
++	p := r.Config.ModelConfig[model]
++	p.APIFormat = config.APIFormatEmbeddings
++	p.Capabilities = []string{"text", "embedding"}
++	p.Embedding = &catalog.EmbeddingModel{Space: "fixture-v1", Dimensions: 128, MinDimensions: 64, MaxBatchSize: 2}
++	r.Config.ModelConfig[model] = p
++	ctx = routingTestContext(llmprotocol.OpenAIEmbeddingsV1, &request)
++	dispatch, err := r.prepareProviderDispatch(&request, model, "", false, ctx)
++	require.NoError(t, err)
++	require.Equal(t, llmprotocol.OpenAIEmbeddingsV1, dispatch.targetFormat)
++	require.Equal(t, "/gateway/v1/embeddings", providerEndpointPath(&config.ProviderProfile{BaseURL: "https://example.test/gateway/v1"}, dispatch.targetFormat))
++	body, err := r.encodeDispatchRequest(ctx)
++	require.NoError(t, err)
++	var wire map[string]any
++	require.NoError(t, json.Unmarshal(body, &wire))
++	require.Equal(t, []any{"first", "second"}, wire["input"])
++	require.Equal(t, float64(64), wire["dimensions"])
++	require.Equal(t, "base64", wire["encoding_format"])
++	require.NotEqual(t, "auto", wire["model"])
++	require.NotContains(t, wire, "embedding_space")
++	for _, responseBody := range []string{`{"object":"list","data":[{"index":0,"embedding":"AAAAAA=="}],"usage":{"prompt_tokens":2}}`, `{"error":{"code":"invalid_dimensions"}}`} {
++		response, err := r.handleResponseBody(&ext_proc.ProcessingRequest_ResponseBody{ResponseBody: &ext_proc.HttpBody{Body: []byte(responseBody)}}, ctx)
++		require.NoError(t, err)
++		require.Nil(t, response.GetResponseBody().GetResponse().BodyMutation)
++	}
++	headers := buildResponseHeaderMutation(ctx, true)
++	found := false
++	for _, h := range headers.SetHeaders {
++		if h.Header.Key == "x-vsr-embedding-space" {
++			found = true
++			require.Equal(t, []byte("fixture-v1"), h.Header.RawValue)
++		}
++	}
++	require.True(t, found)
++	require.Contains(t, buildResponseHeaderMutation(ctx, false).RemoveHeaders, "x-vsr-embedding-space")
++	ctx.Headers = map[string]string{"content-type": "audio/wav"}
++	require.NotNil(t, r.validateMediaContentType(ctx))
++}
++
++func TestNativeEmbeddingsSpaceSelectionAndLimits(t *testing.T) {
++	for _, tc := range []struct {
++		name, space string
++		refs        []string
++		dimensions  int64
++		batch       int
++		want        string
++		fail        bool
++	}{
++		{name: "local", refs: []string{"chat", "local"}, want: "local", batch: 1},
++		{name: "cloud", refs: []string{"chat", "cloud"}, want: "cloud", batch: 1},
++		{name: "ambiguous", refs: []string{"local", "cloud"}, fail: true, batch: 1},
++		{name: "explicit", refs: []string{"local", "cloud"}, space: "cloud-v1", want: "cloud", batch: 1},
++		{name: "unknown space", refs: []string{"local"}, space: "other-v1", fail: true, batch: 1},
++		{name: "dimensions", refs: []string{"local"}, dimensions: 32, fail: true, batch: 1},
++		{name: "batch", refs: []string{"local"}, fail: true, batch: 3},
++		{name: "chat only", refs: []string{"chat"}, fail: true, batch: 1},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			r, _ := routingTestRouterForFormat(llmprotocol.OpenAIChatV1)
++			r.Config.CandidateRequirements = nil // Space and limits must not depend on strict opt-in.
++			r.Config.ModelConfig = map[string]config.ModelParams{}
++			for _, name := range []string{"local", "cloud", "chat"} {
++				p := config.ModelParams{APIFormat: config.APIFormatEmbeddings, Capabilities: []string{"text", "embedding"}, ContextWindowSize: 8192, Embedding: &catalog.EmbeddingModel{Space: name + "-v1", Dimensions: 128, MinDimensions: 64, MaxBatchSize: 2}}
++				if name == "chat" {
++					p.APIFormat = config.APIFormatOpenAI
++					p.Embedding = nil
++					p.Capabilities = []string{"text"}
++				}
++				r.Config.ModelConfig[name] = p
++			}
++			input := make([]string, tc.batch)
++			for i := range input {
++				input[i] = "hello"
++			}
++			wire := map[string]any{"model": "auto", "input": input}
++			if tc.space != "" {
++				wire["embedding_space"] = tc.space
++			}
++			if tc.dimensions > 0 {
++				wire["dimensions"] = tc.dimensions
++			}
++			body, _ := json.Marshal(wire)
++			req, _, _, err := protocolcodec.NewBuiltinEngine().DecodeRequest(llmprotocol.OpenAIEmbeddingsV1, body)
++			require.NoError(t, err)
++			decision := &config.Decision{Name: "embedding", Algorithm: &config.AlgorithmConfig{Type: config.DecisionAlgorithmStatic}}
++			for _, name := range tc.refs {
++				decision.ModelRefs = append(decision.ModelRefs, config.ModelRef{Model: name})
++			}
++			ctx := routingTestContext(llmprotocol.OpenAIEmbeddingsV1, &req)
++			ctx.VSRSelectedDecision = decision
++			selected, _, err := r.selectModelFromCandidates(&selection.SelectionContext{DecisionName: decision.Name, CandidateModels: decision.ModelRefs}, decision.Algorithm, ctx)
++			if tc.fail {
++				require.Error(t, err)
++				require.Nil(t, selected)
++			} else {
++				require.NoError(t, err)
++				require.Equal(t, tc.want, selected.Model)
++				require.Equal(t, tc.want+"-v1", req.Embedding.Space)
++			}
++		})
++	}
++}
++
++func TestNativeEmbeddingsTokenInputsHaveRoutingFacts(t *testing.T) {
++	request, _, _, err := protocolcodec.NewBuiltinEngine().DecodeRequest(llmprotocol.OpenAIEmbeddingsV1, []byte(`{"model":"auto","input":[[1,2,3],[4]]}`))
++	require.NoError(t, err)
++	require.Empty(t, request.Messages)
++	snapshot := extractSemanticRequestSignals(&request)
++	history := signalConversationHistoryFromSnapshot(snapshot)
++	require.True(t, hasEnvelopeRoutingFacts(history))
++	require.Equal(t, 3, snapshot.ContextTokenFloor)
++}
++
++func TestNativeEmbeddingsArkDispatchAndResponse(t *testing.T) {
++	r, model := routingTestRouterForFormat(llmprotocol.OpenAIChatV1)
++	p := r.Config.ModelConfig[model]
++	p.APIFormat = config.APIFormatArkEmbeddings
++	p.Capabilities = []string{"text", "embedding", "image_input"}
++	p.Embedding = &catalog.EmbeddingModel{Space: "doubao-vision-251215", Dimensions: 2048, MinDimensions: 1024, AllowedDimensions: []int{1024, 2048}, MaxBatchSize: 1}
++	r.Config.ModelConfig[model] = p
++	for _, dim := range []int{1024, 1536, 2048} {
++		err := selection.ValidateCandidateRequirements(nil, model, p, selection.CandidateDemand{Embedding: true, EmbeddingDimensions: dim, EmbeddingBatchSize: 1})
++		if dim == 1536 {
++			require.Error(t, err)
++		} else {
++			require.NoError(t, err)
++		}
++	}
++	req, _, _, err := protocolcodec.NewBuiltinEngine().DecodeRequest(llmprotocol.OpenAIEmbeddingsV1, []byte(`{"model":"auto","input":"海很深"}`))
++	require.NoError(t, err)
++	ctx := routingTestContext(llmprotocol.OpenAIEmbeddingsV1, &req)
++	dispatch, err := r.prepareProviderDispatch(&req, model, "", false, ctx)
++	require.NoError(t, err)
++	require.Equal(t, llmprotocol.ArkEmbeddingsV1, dispatch.targetFormat)
++	require.Equal(t, "/api/v3/embeddings/multimodal", providerEndpointPath(&config.ProviderProfile{BaseURL: "https://ark.example.test/api/v3"}, dispatch.targetFormat))
++	encoded, err := r.encodeDispatchRequest(ctx)
++	require.NoError(t, err)
++	require.Contains(t, string(encoded), `"type":"text"`)
++	ctx.UpstreamStatusCode = 200
++	body := []byte(`{"object":"list","model":"doubao","data":{"object":"embedding","embedding":[0.25,0.75]},"usage":{"prompt_tokens":2,"total_tokens":2}}`)
++	response, err := r.handleResponseBody(&ext_proc.ProcessingRequest_ResponseBody{ResponseBody: &ext_proc.HttpBody{Body: body, EndOfStream: true}}, ctx)
++	require.NoError(t, err)
++	require.Contains(t, string(response.GetResponseBody().GetResponse().BodyMutation.GetBody()), `"index":0`)
++	ctx.UpstreamStatusCode = 429
++	response, err = r.handleResponseBody(&ext_proc.ProcessingRequest_ResponseBody{ResponseBody: &ext_proc.HttpBody{Body: []byte(`{"error":{"code":"RateLimit"}}`), EndOfStream: true}}, ctx)
++	require.NoError(t, err)
++	require.Nil(t, response.GetResponseBody().GetResponse().BodyMutation)
++}
 diff --git a/src/semantic-router/pkg/extproc/processor_media_transport.go b/src/semantic-router/pkg/extproc/processor_media_transport.go
 new file mode 100644
-index 000000000..31711879a
+index 000000000..4c2346fde
 --- /dev/null
 +++ b/src/semantic-router/pkg/extproc/processor_media_transport.go
 @@ -0,0 +1,40 @@
@@ -1301,7 +2092,7 @@ index 000000000..31711879a
 +}
 +
 +func isNativeMediaFormat(format llmprotocol.WireFormat) bool {
-+	return format == llmprotocol.MLXVideoV1 || isMultipartFormat(format) || format == llmprotocol.OpenAISpeechV1 || format == llmprotocol.OpenAIImagesV1 || format == llmprotocol.OmniAudioGenerateV1
++	return format == llmprotocol.OpenAIEmbeddingsV1 || format == llmprotocol.ArkEmbeddingsV1 || format == llmprotocol.MLXVideoV1 || isMultipartFormat(format) || format == llmprotocol.OpenAISpeechV1 || format == llmprotocol.OpenAIImagesV1 || format == llmprotocol.OmniAudioGenerateV1
 +}
 +
 +func isMultipartFormat(format llmprotocol.WireFormat) bool {
@@ -1309,10 +2100,10 @@ index 000000000..31711879a
 +}
 diff --git a/src/semantic-router/pkg/extproc/processor_media_transport_test.go b/src/semantic-router/pkg/extproc/processor_media_transport_test.go
 new file mode 100644
-index 000000000..636847d3a
+index 000000000..1697dd288
 --- /dev/null
 +++ b/src/semantic-router/pkg/extproc/processor_media_transport_test.go
-@@ -0,0 +1,341 @@
+@@ -0,0 +1,340 @@
 +package extproc
 +
 +import (
@@ -1653,9 +2444,8 @@ index 000000000..636847d3a
 +		t.Fatal("video ingress not recognized")
 +	}
 +}
-+
 diff --git a/src/semantic-router/pkg/extproc/processor_protocol_contract.go b/src/semantic-router/pkg/extproc/processor_protocol_contract.go
-index 4be59f783..f7dc8229b 100644
+index 4be59f783..63a72d308 100644
 --- a/src/semantic-router/pkg/extproc/processor_protocol_contract.go
 +++ b/src/semantic-router/pkg/extproc/processor_protocol_contract.go
 @@ -148,6 +148,9 @@ func (r *OpenAIRouter) prepareProtocolRequest(
@@ -1678,10 +2468,14 @@ index 4be59f783..f7dc8229b 100644
  	if format == llmprotocol.OpenAIImagesV1 {
  		return "/v1/images/generations"
  	}
-@@ -354,6 +360,28 @@ func requestWirePath(format llmprotocol.WireFormat) string {
+@@ -354,6 +360,32 @@ func requestWirePath(format llmprotocol.WireFormat) string {
  
  func requestWireProtocol(format llmprotocol.WireFormat) string {
  	switch format {
++	case llmprotocol.ArkEmbeddingsV1:
++		return "ark/embeddings@1"
++	case llmprotocol.OpenAIEmbeddingsV1:
++		return "openai/embeddings@1"
 +	case llmprotocol.MLXVideoV1:
 +		return "mlx/video@1"
 +	case llmprotocol.OmniAudioGenerateV1:
@@ -2084,7 +2878,7 @@ index 8603cbb81..6ae4e678e 100644
  		r.startRouterReplay(ctx, originalModel, selectedModel, decisionName)
  		r.updateRouterReplayStatus(ctx, 200, false)
 diff --git a/src/semantic-router/pkg/extproc/processor_req_body_routing.go b/src/semantic-router/pkg/extproc/processor_req_body_routing.go
-index 1677a6142..9768e9339 100644
+index 1677a6142..4267f45ca 100644
 --- a/src/semantic-router/pkg/extproc/processor_req_body_routing.go
 +++ b/src/semantic-router/pkg/extproc/processor_req_body_routing.go
 @@ -79,6 +79,11 @@ func (r *OpenAIRouter) prepareProviderDispatch(
@@ -2099,10 +2893,14 @@ index 1677a6142..9768e9339 100644
  	ctx.TargetFormat = dispatch.targetFormat
  	// Bind response policy where the backend is selected.
  	ctx.ResponseVendor = resolveResponseVendor(dispatch.profile)
-@@ -251,6 +256,26 @@ func wireFormatForModel(apiFormat string) (llmprotocol.WireFormat, error) {
+@@ -251,6 +256,30 @@ func wireFormatForModel(apiFormat string) (llmprotocol.WireFormat, error) {
  		return llmprotocol.AnthropicMessagesV1, nil
  	case config.APIFormatResponses, "openai.responses", string(llmprotocol.OpenAIResponsesV1):
  		return llmprotocol.OpenAIResponsesV1, nil
++	case config.APIFormatArkEmbeddings, string(llmprotocol.ArkEmbeddingsV1):
++		return llmprotocol.ArkEmbeddingsV1, nil
++	case config.APIFormatEmbeddings, string(llmprotocol.OpenAIEmbeddingsV1):
++		return llmprotocol.OpenAIEmbeddingsV1, nil
 +	case config.APIFormatMLXVideo, string(llmprotocol.MLXVideoV1):
 +		return llmprotocol.MLXVideoV1, nil
 +	case config.APIFormatAudioGenerate, string(llmprotocol.OmniAudioGenerateV1):
@@ -2126,7 +2924,7 @@ index 1677a6142..9768e9339 100644
  	case config.APIFormatImages, "openai.images", string(llmprotocol.OpenAIImagesV1):
  		return llmprotocol.OpenAIImagesV1, nil
  	default:
-@@ -341,6 +366,9 @@ func (r *OpenAIRouter) finalizeProviderDispatchResponse(
+@@ -341,6 +370,9 @@ func (r *OpenAIRouter) finalizeProviderDispatchResponse(
  		metrics.RecordRequestError(dispatch.logicalModel, "serialization_error")
  		return nil, dispatchWireError(err, ctx, "encode provider request")
  	}
@@ -2136,7 +2934,7 @@ index 1677a6142..9768e9339 100644
  	body, err = r.adaptProviderRequest(body, dispatch, ctx)
  	if err != nil {
  		metrics.RecordRequestError(dispatch.logicalModel, "provider_adapter_error")
-@@ -354,6 +382,9 @@ func (r *OpenAIRouter) finalizeProviderDispatchResponse(
+@@ -354,6 +386,9 @@ func (r *OpenAIRouter) finalizeProviderDispatchResponse(
  		common.HeaderMutation = &ext_proc.HeaderMutation{}
  	}
  	appendContentLengthHeader(&common.HeaderMutation.SetHeaders, len(body))
@@ -2146,7 +2944,7 @@ index 1677a6142..9768e9339 100644
  	if err := commitAgenticSessionDecision(ctx); err != nil {
  		return nil, err
  	}
-@@ -512,12 +543,7 @@ func setProviderRequestPath(
+@@ -512,12 +547,7 @@ func setProviderRequestPath(
  	profile *config.ProviderProfile,
  	format llmprotocol.WireFormat,
  ) {
@@ -2193,13 +2991,15 @@ index 2a62201a0..75a187d5e 100644
  	if modelsResp, err := r.handleModelsRequestHeaders(method, path); err != nil || modelsResp != nil {
  		return modelsResp, err
 diff --git a/src/semantic-router/pkg/extproc/processor_req_header_endpoints.go b/src/semantic-router/pkg/extproc/processor_req_header_endpoints.go
-index 63951492f..6bf2a3175 100644
+index 63951492f..c6b70c2f1 100644
 --- a/src/semantic-router/pkg/extproc/processor_req_header_endpoints.go
 +++ b/src/semantic-router/pkg/extproc/processor_req_header_endpoints.go
-@@ -149,6 +149,24 @@ func extractResponseIDFromInputItemsPath(path string) string {
+@@ -149,6 +149,26 @@ func extractResponseIDFromInputItemsPath(path string) string {
  // detectSourceFormat classifies the public wire format from the request path.
  func detectSourceFormat(path string, ctx *RequestContext) {
  	switch {
++	case normalizeRequestPath(path) == "/v1/embeddings":
++		ctx.SourceFormat = llmprotocol.OpenAIEmbeddingsV1
 +	case normalizeRequestPath(path) == "/v1/video/generations":
 +		ctx.SourceFormat = llmprotocol.MLXVideoV1
 +	case normalizeRequestPath(path) == "/v1/audio/generate":
@@ -2222,7 +3022,7 @@ index 63951492f..6bf2a3175 100644
  		ctx.SourceFormat = llmprotocol.AnthropicMessagesV1
  		logging.Debugf("Detected Anthropic client protocol from path: %s", path)
 diff --git a/src/semantic-router/pkg/extproc/processor_req_header_validation.go b/src/semantic-router/pkg/extproc/processor_req_header_validation.go
-index 8694daa43..132bdb317 100644
+index 8694daa43..2f1295fd8 100644
 --- a/src/semantic-router/pkg/extproc/processor_req_header_validation.go
 +++ b/src/semantic-router/pkg/extproc/processor_req_header_validation.go
 @@ -12,7 +12,7 @@ func (r *OpenAIRouter) validateRequestHeaders(method string, path string) *ext_p
@@ -2230,15 +3030,15 @@ index 8694daa43..132bdb317 100644
  	case "/v1/chat/completions", azureV1ChatPath:
  		return validateAllowedMethod(r, method, "POST")
 -	case "/v1/messages":
-+	case "/v1/video/generations", "/v1/audio/transcriptions", "/v1/audio/translations", "/v1/videos", "/v1/videos/sync", "/v1/images/edits", "/v1/audio/generate", "/v1/audio/speech", "/v1/images/generations", "/v1/messages":
++	case "/v1/embeddings", "/v1/video/generations", "/v1/audio/transcriptions", "/v1/audio/translations", "/v1/videos", "/v1/videos/sync", "/v1/images/edits", "/v1/audio/generate", "/v1/audio/speech", "/v1/images/generations", "/v1/messages":
  		return validateAllowedMethod(r, method, "POST")
  	case "/v1/models":
  		return validateAllowedMethod(r, method, "GET")
 diff --git a/src/semantic-router/pkg/extproc/processor_res_body.go b/src/semantic-router/pkg/extproc/processor_res_body.go
-index 749a778a8..37c485b5a 100644
+index 749a778a8..3a419a154 100644
 --- a/src/semantic-router/pkg/extproc/processor_res_body.go
 +++ b/src/semantic-router/pkg/extproc/processor_res_body.go
-@@ -11,10 +11,19 @@ import (
+@@ -11,10 +11,22 @@ import (
  
  // handleResponseBody processes the response body.
  func (r *OpenAIRouter) handleResponseBody(v *ext_proc.ProcessingRequest_ResponseBody, ctx *RequestContext) (*ext_proc.ProcessingResponse, error) {
@@ -2252,6 +3052,9 @@ index 749a778a8..37c485b5a 100644
 +	if ctx.videoBinding != nil {
 +		return r.handleVideoResponseBody(v.ResponseBody.Body, ctx), nil
 +	}
++	if ctx.SemanticRequest != nil && ctx.SemanticRequest.Embedding != nil && ctx.SourceFormat != ctx.TargetFormat {
++		return r.handleEmbeddingResponseBody(v.ResponseBody.Body, ctx), nil
++	}
 +	if isNativeMediaPassthrough(ctx) {
 +		return buildResponseBodyContinueResponse(nil, nil), nil
 +	}
@@ -2259,7 +3062,7 @@ index 749a778a8..37c485b5a 100644
  	if !ctx.IsStreamingResponse || v.ResponseBody.GetEndOfStream() {
  		defer recordSessionTurnOutcome(ctx, responseUsageMetrics{})
 diff --git a/src/semantic-router/pkg/extproc/processor_res_header.go b/src/semantic-router/pkg/extproc/processor_res_header.go
-index 39b12778c..5d4f512e0 100644
+index 39b12778c..fcd80315d 100644
 --- a/src/semantic-router/pkg/extproc/processor_res_header.go
 +++ b/src/semantic-router/pkg/extproc/processor_res_header.go
 @@ -17,6 +17,12 @@ func (r *OpenAIRouter) handleResponseHeaders(v *ext_proc.ProcessingRequest_Respo
@@ -2275,10 +3078,14 @@ index 39b12778c..5d4f512e0 100644
  	if looperResp := r.handleLooperResponseHeaders(v, ctx); looperResp != nil {
  		return looperResp, nil
  	}
-@@ -48,6 +54,10 @@ func (r *OpenAIRouter) handleResponseHeaders(v *ext_proc.ProcessingRequest_Respo
+@@ -48,6 +54,14 @@ func (r *OpenAIRouter) handleResponseHeaders(v *ext_proc.ProcessingRequest_Respo
  	}
  
  	headerMutation := buildResponseHeaderMutation(ctx, outcome.isSuccessful)
++	if ctx.SemanticRequest != nil && ctx.SemanticRequest.Embedding != nil && ctx.SourceFormat != ctx.TargetFormat {
++		headerMutation = mergeHeaderMutations(headerMutation, &ext_proc.HeaderMutation{RemoveHeaders: []string{"content-length"}})
++		return buildResponseHeadersContinueResponse(headerMutation, false), nil
++	}
 +	if isNativeMediaPassthrough(ctx) {
 +		// Every chunk stays with Envoy, including backend errors. Never buffer audio.
 +		return buildResponseHeadersContinueResponse(headerMutation, true), nil
@@ -2286,6 +3093,35 @@ index 39b12778c..5d4f512e0 100644
  	headerMutation = mergeHeaderMutations(headerMutation, buildResponseStreamingMutation(ctx, outcome))
  	// Response headers are sent before the body is decoded. A same-format Chat
  	// provider may require canonical re-encoding after its decorations are
+diff --git a/src/semantic-router/pkg/extproc/processor_res_header_mutation.go b/src/semantic-router/pkg/extproc/processor_res_header_mutation.go
+index be3ee5a7b..f5814addc 100644
+--- a/src/semantic-router/pkg/extproc/processor_res_header_mutation.go
++++ b/src/semantic-router/pkg/extproc/processor_res_header_mutation.go
+@@ -297,6 +297,9 @@ func buildResponseHeaderMutation(
+ 	}
+ 
+ 	builder := newResponseHeaderMutationBuilder()
++	if ctx.SemanticRequest != nil && ctx.SemanticRequest.Embedding != nil && isSuccessful {
++		builder.addString(headers.VSREmbeddingSpace, ctx.SemanticRequest.Embedding.Space)
++	}
+ 
+ 	// The keystone headers, protocol markers, and protocol warnings ride on
+ 	// every non-cache-hit response (success or 4xx/5xx). Cache-hit responses
+@@ -316,7 +319,13 @@ func buildResponseHeaderMutation(
+ 	}
+ 
+ 	if !isSuccessful || ctx.VSRCacheHit {
+-		return builder.mutation()
++		mutation := builder.mutation()
++		if mutation != nil {
++			if _, ok := builder.seen[headers.VSREmbeddingSpace]; !ok {
++				mutation.RemoveHeaders = append(mutation.RemoveHeaders, headers.VSREmbeddingSpace)
++			}
++		}
++		return mutation
+ 	}
+ 
+ 	// Final routing facts ride on every successful response. The intermediate
 diff --git a/src/semantic-router/pkg/extproc/processor_video_binding.go b/src/semantic-router/pkg/extproc/processor_video_binding.go
 new file mode 100644
 index 000000000..a056c2399
@@ -2793,7 +3629,7 @@ index 000000000..ce26f37ed
 +	return buildResponseBodyContinueResponse(&ext_proc.BodyMutation{Mutation: &ext_proc.BodyMutation_Body{Body: encoded}}, nil)
 +}
 diff --git a/src/semantic-router/pkg/extproc/provider_http.go b/src/semantic-router/pkg/extproc/provider_http.go
-index 2f817b1af..cbe31ee9d 100644
+index 2f817b1af..997fc4505 100644
 --- a/src/semantic-router/pkg/extproc/provider_http.go
 +++ b/src/semantic-router/pkg/extproc/provider_http.go
 @@ -58,6 +58,12 @@ func providerEndpointPath(profile *config.ProviderProfile, format llmprotocol.Wi
@@ -2802,7 +3638,7 @@ index 2f817b1af..cbe31ee9d 100644
  	}
 +	if isNativeMediaFormat(format) {
 +		if base, err := url.Parse(profile.BaseURL); err == nil && base.Path != "" {
-+			return strings.TrimSuffix(base.Path, "/") + strings.TrimPrefix(path, "/v1")
++			return strings.TrimSuffix(base.Path, "/") + strings.TrimPrefix(strings.TrimPrefix(path, "/api/v3"), "/v1")
 +		}
 +		return path
 +	}
@@ -2810,7 +3646,7 @@ index 2f817b1af..cbe31ee9d 100644
  		return configured
  	}
 diff --git a/src/semantic-router/pkg/extproc/req_filter_classification_envelope.go b/src/semantic-router/pkg/extproc/req_filter_classification_envelope.go
-index 6a8f5e1ec..bf1e1a408 100644
+index 6a8f5e1ec..45212dd23 100644
 --- a/src/semantic-router/pkg/extproc/req_filter_classification_envelope.go
 +++ b/src/semantic-router/pkg/extproc/req_filter_classification_envelope.go
 @@ -1,7 +1,8 @@
@@ -2818,11 +3654,25 @@ index 6a8f5e1ec..bf1e1a408 100644
  
  func hasEnvelopeRoutingFacts(history signalConversationHistory) bool {
 -	return len(history.metadata) > 0 ||
-+	// A typed session handshake has routing requirements before media frames exist.
-+	return history.realtimeSession || len(history.metadata) > 0 ||
++	// Typed token embeddings and session handshakes have routing requirements without text.
++	return history.embeddingOperation || history.realtimeSession || len(history.metadata) > 0 ||
  		history.imageContentCount > 0 ||
  		history.inputModality.AudioContentCount > 0 ||
  		history.inputModality.VideoContentCount > 0 ||
+diff --git a/src/semantic-router/pkg/extproc/req_filter_looper.go b/src/semantic-router/pkg/extproc/req_filter_looper.go
+index 393a0d987..67f3baad6 100644
+--- a/src/semantic-router/pkg/extproc/req_filter_looper.go
++++ b/src/semantic-router/pkg/extproc/req_filter_looper.go
+@@ -119,6 +119,9 @@ func (r *OpenAIRouter) handleLooperExecution(
+ 	decision *config.Decision,
+ 	reqCtx *RequestContext,
+ ) (*ext_proc.ProcessingResponse, error) {
++	if request != nil && request.Embedding != nil {
++		return r.createErrorResponse(400, "embedding requests require direct model selection; generative loopers are unsupported"), nil
++	}
+ 	ctx = looper.WithExpectedConfigHash(ctx, headerValueCI(reqCtx, headers.SRBenchExpectedConfigHash))
+ 	if r.WorkflowStateService != nil && decision != nil && decision.Algorithm != nil &&
+ 		decision.Algorithm.Type == config.DecisionAlgorithmWorkflows {
 diff --git a/src/semantic-router/pkg/extproc/request_context.go b/src/semantic-router/pkg/extproc/request_context.go
 index c71a819a2..4869a28c1 100644
 --- a/src/semantic-router/pkg/extproc/request_context.go
@@ -2836,37 +3686,62 @@ index c71a819a2..4869a28c1 100644
  	AutomaticCandidateDemands map[string]selection.CandidateDemand
  	BenchmarkModelUsage       string // Router-owned bounded accounting receipt; never copied from client or cache.
 diff --git a/src/semantic-router/pkg/extproc/request_signal_history.go b/src/semantic-router/pkg/extproc/request_signal_history.go
-index 364a58c6c..6d81c14f1 100644
+index 364a58c6c..6b0883ba3 100644
 --- a/src/semantic-router/pkg/extproc/request_signal_history.go
 +++ b/src/semantic-router/pkg/extproc/request_signal_history.go
-@@ -7,6 +7,7 @@ import (
+@@ -7,6 +7,8 @@ import (
  )
  
  type signalConversationHistory struct {
 +	realtimeSession        bool
++	embeddingOperation     bool
  	currentUserMessage     string
  	priorUserMessages      []string
  	nonUserMessages        []string
-@@ -46,6 +47,7 @@ func signalConversationHistoryFromSnapshot(result *requestSignalSnapshot) signal
+@@ -46,6 +48,8 @@ func signalConversationHistoryFromSnapshot(result *requestSignalSnapshot) signal
  	}
  	return signalConversationHistory{
  		currentUserMessage:        result.UserContent,
 +		realtimeSession:           result.RealtimeSession,
++		embeddingOperation:        result.EmbeddingOperation,
  		priorUserMessages:         append([]string(nil), result.PriorUserMessages...),
  		nonUserMessages:           append([]string(nil), result.NonUserMessages...),
  		jailbreakInput:            result.JailbreakInput,
 diff --git a/src/semantic-router/pkg/extproc/request_signal_snapshot.go b/src/semantic-router/pkg/extproc/request_signal_snapshot.go
-index 614e658c3..6ec7f5f94 100644
+index 614e658c3..7ff0df1ec 100644
 --- a/src/semantic-router/pkg/extproc/request_signal_snapshot.go
 +++ b/src/semantic-router/pkg/extproc/request_signal_snapshot.go
-@@ -7,6 +7,7 @@ import "github.com/vllm-project/semantic-router/src/semantic-router/pkg/classifi
+@@ -7,17 +7,19 @@ import "github.com/vllm-project/semantic-router/src/semantic-router/pkg/classifi
  // media and tool schemas. Tool-result text is confined to the dedicated Guard
  // projection; it is not added to the general semantic signal text.
  type requestSignalSnapshot struct {
-+	RealtimeSession   bool
- 	Model             string
- 	Stream            bool
- 	UserContent       string
+-	Model             string
+-	Stream            bool
+-	UserContent       string
+-	PriorUserMessages []string
+-	NonUserMessages   []string
+-	JailbreakInput    *classification.JailbreakInput
+-	HasAssistantReply bool
+-	LastUserHasText   bool
+-	FirstImageURL     string
+-	FirstAudio        string
+-	ImageContentCount int
++	EmbeddingOperation bool
++	RealtimeSession    bool
++	Model              string
++	Stream             bool
++	UserContent        string
++	PriorUserMessages  []string
++	NonUserMessages    []string
++	JailbreakInput     *classification.JailbreakInput
++	HasAssistantReply  bool
++	LastUserHasText    bool
++	FirstImageURL      string
++	FirstAudio         string
++	ImageContentCount  int
+ 	// InputModality holds the structural input-modality counts for the
+ 	// input_modality signal family, scoped to user messages.
+ 	InputModality classification.InputModalityFacts
 diff --git a/src/semantic-router/pkg/extproc/router.go b/src/semantic-router/pkg/extproc/router.go
 index 4423c3df1..34a0771fa 100644
 --- a/src/semantic-router/pkg/extproc/router.go
@@ -2899,6 +3774,78 @@ index 67ef7271f..0c7604fab 100644
  	return router
  }
  
+diff --git a/src/semantic-router/pkg/extproc/selection_capabilities.go b/src/semantic-router/pkg/extproc/selection_capabilities.go
+index 2729eb797..30de274f2 100644
+--- a/src/semantic-router/pkg/extproc/selection_capabilities.go
++++ b/src/semantic-router/pkg/extproc/selection_capabilities.go
+@@ -107,6 +107,9 @@ func (r *OpenAIRouter) capabilityEligibleSelectionContext(input *selection.Selec
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if err := r.qualifyEmbeddingSpace(ctx); err != nil {
++		return nil, err
++	}
+ 	requirements := r.candidateRequirements(ctx)
+ 	eligible := make([]config.ModelRef, 0, len(input.CandidateModels))
+ 	var unsupported *llmprotocol.ProtocolError
+diff --git a/src/semantic-router/pkg/extproc/selection_embeddings.go b/src/semantic-router/pkg/extproc/selection_embeddings.go
+new file mode 100644
+index 000000000..6d1c59464
+--- /dev/null
++++ b/src/semantic-router/pkg/extproc/selection_embeddings.go
+@@ -0,0 +1,52 @@
++package extproc
++
++import (
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/config"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
++)
++
++// qualifyEmbeddingSpace examines the complete recipe rather than a load- or
++// health-filtered subset. Changing availability must never change vector space.
++func (r *OpenAIRouter) qualifyEmbeddingSpace(ctx *RequestContext) error {
++	if ctx == nil || ctx.SemanticRequest == nil || ctx.SemanticRequest.Embedding == nil || ctx.VSRSelectedDecision == nil {
++		return nil
++	}
++	e := ctx.SemanticRequest.Embedding
++	space := e.Space
++	dimensions := 0
++	refs := append([]config.ModelRef(nil), ctx.VSRSelectedDecision.ModelRefs...)
++	if recipe := ctx.Routing.SelectedRecipe(); recipe != nil {
++		refs = nil
++		for _, decision := range recipe.Profile.Decisions {
++			refs = append(refs, decision.ModelRefs...)
++			if decision.Action != nil && decision.Action.Type == config.DecisionActionRoute {
++				refs = append(refs, config.ModelRef{Model: decision.Action.Destination})
++			}
++		}
++	}
++	for _, ref := range refs {
++		card := r.Config.ModelConfig[ref.Model]
++		if card.Embedding == nil || card.Embedding.Space == "" {
++			continue
++		}
++		if e.Space != "" && card.Embedding.Space != e.Space {
++			continue
++		}
++		if space == "" {
++			space = card.Embedding.Space
++		}
++		if space != card.Embedding.Space {
++			return llmprotocol.NewError(llmprotocol.ErrorInvalidRequest, "embedding_space_required", "this recipe contains different vector spaces; provide embedding_space", nil)
++		}
++		if e.Dimensions == nil {
++			if dimensions != 0 && dimensions != card.Embedding.Dimensions {
++				return llmprotocol.NewError(llmprotocol.ErrorInvalidRequest, "embedding_dimensions_required", "embedding backends have different default dimensions; provide dimensions", nil)
++			}
++			dimensions = card.Embedding.Dimensions
++		}
++	}
++	if e.Space == "" && space != "" {
++		e.Space = space
++	}
++	return nil
++}
 diff --git a/src/semantic-router/pkg/extproc/status_code_mapping.go b/src/semantic-router/pkg/extproc/status_code_mapping.go
 index 0fadcaaed..22dd1438c 100644
 --- a/src/semantic-router/pkg/extproc/status_code_mapping.go
@@ -2933,7 +3880,7 @@ index 20cd2f0c3..0b29fd726 100644
  	429: typev3.StatusCode_TooManyRequests,
  	500: typev3.StatusCode_InternalServerError,
 diff --git a/src/semantic-router/pkg/extproc/utils_neutral.go b/src/semantic-router/pkg/extproc/utils_neutral.go
-index 7c33be788..eae640063 100644
+index 7c33be788..16ad842da 100644
 --- a/src/semantic-router/pkg/extproc/utils_neutral.go
 +++ b/src/semantic-router/pkg/extproc/utils_neutral.go
 @@ -70,7 +70,7 @@ func prependSemanticOutputText(output []llmprotocol.OutputItem, prefix string) b
@@ -2941,10 +3888,24 @@ index 7c33be788..eae640063 100644
  func extractSemanticRequestSignals(request *llmprotocol.Request) *requestSignalSnapshot {
  	result := &requestSignalSnapshot{
 -		Model: request.Model, Stream: request.Stream,
-+		Model: request.Model, Stream: request.Stream, RealtimeSession: request.Realtime != nil,
++		Model: request.Model, Stream: request.Stream, RealtimeSession: request.Realtime != nil, EmbeddingOperation: request.Embedding != nil,
  		JailbreakInput: extractJailbreakInput(request),
  	}
  	switch request.ToolChoice.Mode {
+diff --git a/src/semantic-router/pkg/headers/headers.go b/src/semantic-router/pkg/headers/headers.go
+index ee81fa0ae..685756ca3 100644
+--- a/src/semantic-router/pkg/headers/headers.go
++++ b/src/semantic-router/pkg/headers/headers.go
+@@ -93,6 +93,9 @@ const (
+ 	// Example values: "deepseek-v31", "phi4", "gpt-4"
+ 	VSRSelectedModel = "x-vsr-selected-model"
+ 
++	// VSREmbeddingSpace identifies the declared vector space of an embedding result.
++	VSREmbeddingSpace = "x-vsr-embedding-space"
++
+ 	// VSREffectiveInputTokens is the selected backend's rendered input size for
+ 	// the finalized automatic-output dispatch, including its chat template.
+ 	VSREffectiveInputTokens = "x-vsr-effective-input-tokens" // #nosec G101 -- public header name, not a credential
 diff --git a/src/semantic-router/pkg/llmprotocol/audio_generation.go b/src/semantic-router/pkg/llmprotocol/audio_generation.go
 new file mode 100644
 index 000000000..a6e33375d
@@ -3020,10 +3981,10 @@ index 000000000..a6e33375d
 +	return nil
 +}
 diff --git a/src/semantic-router/pkg/llmprotocol/capabilities.go b/src/semantic-router/pkg/llmprotocol/capabilities.go
-index 9f690feb7..ebee67555 100644
+index 9f690feb7..5e1aa05d0 100644
 --- a/src/semantic-router/pkg/llmprotocol/capabilities.go
 +++ b/src/semantic-router/pkg/llmprotocol/capabilities.go
-@@ -58,6 +58,16 @@ const (
+@@ -58,6 +58,18 @@ const (
  	// a JSON Schema function tool cannot represent.
  	CapabilityCustomTools
  	CapabilityTextVerbosity
@@ -3037,22 +3998,26 @@ index 9f690feb7..ebee67555 100644
 +	CapabilityNativeChatOutput
 +	CapabilityVideoGeneration
 +	CapabilityRealtime
++	CapabilityEmbedding
++	CapabilityEmbeddingTokenInput
  )
  
  // CapabilitySet is an immutable value bitset.
-@@ -86,7 +96,7 @@ func (set CapabilitySet) Empty() bool { return set.bits == 0 }
+@@ -86,7 +98,7 @@ func (set CapabilitySet) Empty() bool { return set.bits == 0 }
  // assumed for every model and transport/accounting fidelity
  // (tools/streaming/reasoning/caching) is protocol concern rather than a task
  // modality, so model capability declarations are compared against this mask.
 -var taskCapabilityMask = CapabilityImageInput | CapabilityImageOutput | CapabilityImageGeneration |
-+var taskCapabilityMask = CapabilityRealtime | CapabilityVideoGeneration | CapabilityTranscription | CapabilityTranslation | CapabilityImageEditing | CapabilityAudioGeneration | CapabilitySpeechGeneration | CapabilityImageInput | CapabilityImageOutput | CapabilityImageGeneration |
++var taskCapabilityMask = CapabilityEmbedding | CapabilityEmbeddingTokenInput | CapabilityRealtime | CapabilityVideoGeneration | CapabilityTranscription | CapabilityTranslation | CapabilityImageEditing | CapabilityAudioGeneration | CapabilitySpeechGeneration | CapabilityImageInput | CapabilityImageOutput | CapabilityImageGeneration |
  	CapabilityAudioInput | CapabilityAudioOutput |
  	CapabilityVideoInput | CapabilityVideoOutput |
  	CapabilityFileInput | CapabilityFileOutput
-@@ -104,6 +114,10 @@ func (set CapabilitySet) Names() []string {
+@@ -104,6 +116,12 @@ func (set CapabilitySet) Names() []string {
  		name       string
  	}{
  		{CapabilityText, "text"},
++		{CapabilityEmbedding, "embedding"},
++		{CapabilityEmbeddingTokenInput, "embedding_token_input"},
 +		{CapabilityRealtime, "realtime"},
 +		{CapabilityNativeChatOutput, "native_chat_output"},
 +		{CapabilityVideoGeneration, "video_generation"},
@@ -3060,7 +4025,7 @@ index 9f690feb7..ebee67555 100644
  		{CapabilityImageInput, "image_input"},
  		{CapabilityImageOutput, "image_output"},
  		{CapabilityAudioInput, "audio_input"},
-@@ -145,6 +159,9 @@ func (set CapabilitySet) Names() []string {
+@@ -145,6 +163,9 @@ func (set CapabilitySet) Names() []string {
  		{CapabilityImageGeneration, "image_generation"},
  		{CapabilityCustomTools, "custom_tools"},
  		{CapabilityTextVerbosity, "text_verbosity"},
@@ -3070,7 +4035,7 @@ index 9f690feb7..ebee67555 100644
  	}
  	names := make([]string, 0, len(known))
  	for _, item := range known {
-@@ -157,6 +174,56 @@ func (set CapabilitySet) Names() []string {
+@@ -157,6 +178,62 @@ func (set CapabilitySet) Names() []string {
  
  func RequiredCapabilities(request Request) CapabilitySet {
  	required := requestOptionCapabilities(request)
@@ -3109,6 +4074,12 @@ index 9f690feb7..ebee67555 100644
 +			}
 +		}
 +	}
++	if request.Embedding != nil {
++		required.bits |= CapabilityEmbedding
++		if summary, err := SummarizeEmbeddingInput(request.Embedding.Input); err == nil && summary.TokenInput {
++			required.bits |= CapabilityEmbeddingTokenInput
++		}
++	}
 +	if request.MLXVideo != nil {
 +		required.bits |= CapabilityVideoGeneration | CapabilityVideoOutput | CapabilityAudioOutput
 +		if request.MLXVideo.FirstFrameImage != "" || request.MLXVideo.LastFrameImage != "" {
@@ -3127,7 +4098,7 @@ index 9f690feb7..ebee67555 100644
  	// An explicit tool_choice: none forbids all tools, including the hosted
  	// image_generation operation, so a declared ImageGeneration must not
  	// require the images capability (Xun: preserve the no-tool choice).
-@@ -445,6 +512,7 @@ func isCustomToolCall(content Content) bool {
+@@ -445,6 +522,7 @@ func isCustomToolCall(content Content) bool {
  
  func ParseCapabilities(names []string) (CapabilitySet, error) {
  	lookup := map[string]Capability{
@@ -3135,7 +4106,7 @@ index 9f690feb7..ebee67555 100644
  		"text": CapabilityText, "chat": CapabilityText, "image_input": CapabilityImageInput,
  		"image_output": CapabilityImageOutput, "audio_input": CapabilityAudioInput,
  		"audio_output": CapabilityAudioOutput, "video_input": CapabilityVideoInput,
-@@ -454,31 +522,37 @@ func ParseCapabilities(names []string) (CapabilitySet, error) {
+@@ -454,31 +532,39 @@ func ParseCapabilities(names []string) (CapabilitySet, error) {
  		"structured_json": CapabilityStructuredJSON, "strict_json_schema": CapabilityStrictJSONSchema,
  		"strict_tool_schema": CapabilityStrictToolSchema,
  		"streaming":          CapabilityStreaming, "cache_accounting": CapabilityCacheAccounting,
@@ -3190,6 +4161,8 @@ index 9f690feb7..ebee67555 100644
 +		"custom_tools":            CapabilityCustomTools,
 +		"text_verbosity":          CapabilityTextVerbosity,
 +		"audio_generation":        CapabilityAudioGeneration,
++		"embedding":               CapabilityEmbedding,
++		"embedding_token_input":   CapabilityEmbeddingTokenInput,
 +		"video_generation":        CapabilityVideoGeneration,
 +		"realtime":                CapabilityRealtime,
 +		"native_chat_output":      CapabilityNativeChatOutput,
@@ -3264,6 +4237,210 @@ index 000000000..ba9c2b67f
 +	// A provider such as vLLM-Omni can supply audio defaults. No voice, format or
 +	// output modality is invented by the codec when the caller omits it.
 +	return nil
++}
+diff --git a/src/semantic-router/pkg/llmprotocol/embeddings.go b/src/semantic-router/pkg/llmprotocol/embeddings.go
+new file mode 100644
+index 000000000..9c19c8cc6
+--- /dev/null
++++ b/src/semantic-router/pkg/llmprotocol/embeddings.go
+@@ -0,0 +1,198 @@
++package llmprotocol
++
++import (
++	"encoding/json"
++	"fmt"
++	"regexp"
++	"strings"
++)
++
++// EmbeddingOptions describes one embedding operation, never a text generation.
++// Space is a router constraint and must not be serialized to the backend.
++var embeddingSpacePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$`)
++
++func ValidEmbeddingSpace(space string) bool { return embeddingSpacePattern.MatchString(space) }
++
++type EmbeddingOptions struct {
++	Input          json.RawMessage
++	ChatInput      bool
++	Dimensions     *int64
++	EncodingFormat string
++	User           string
++	Space          string
++}
++
++type EmbeddingInputSummary struct {
++	Texts          []string
++	BatchSize      int
++	MaxInputTokens int
++	TokenInput     bool
++}
++
++// SummarizeEmbeddingInput preserves each batch item. Context qualification uses
++// the largest item rather than concatenating independent embedding inputs.
++func SummarizeEmbeddingInput(input json.RawMessage) (EmbeddingInputSummary, error) {
++	var value any
++	if err := json.Unmarshal(input, &value); err != nil {
++		return EmbeddingInputSummary{}, fmt.Errorf("input must be text or token IDs")
++	}
++	var result EmbeddingInputSummary
++	text := func(s string) error {
++		if strings.TrimSpace(s) == "" {
++			return fmt.Errorf("embedding input cannot be empty")
++		}
++		result.Texts = append(result.Texts, s)
++		result.BatchSize++
++		estimate := EstimateInput(&Request{Messages: []Message{{Role: RoleUser, Content: []Content{{Kind: ContentText, Text: s}}}}}).Tokens
++		if estimate > result.MaxInputTokens {
++			result.MaxInputTokens = estimate
++		}
++		return nil
++	}
++	tokens := func(items []any) error {
++		if len(items) == 0 || len(items) > 1048576 {
++			return fmt.Errorf("token sequence size is invalid")
++		}
++		for _, item := range items {
++			n, ok := item.(float64)
++			if !ok || n < 0 || n > 2147483647 || n != float64(int64(n)) {
++				return fmt.Errorf("token IDs must be nonnegative integers")
++			}
++		}
++		result.TokenInput = true
++		result.BatchSize++
++		if len(items) > result.MaxInputTokens {
++			result.MaxInputTokens = len(items)
++		}
++		return nil
++	}
++	switch v := value.(type) {
++	case string:
++		if err := text(v); err != nil {
++			return result, err
++		}
++	case []any:
++		if len(v) == 0 {
++			return result, fmt.Errorf("embedding batch cannot be empty")
++		}
++		switch v[0].(type) {
++		case float64:
++			if err := tokens(v); err != nil {
++				return result, err
++			}
++		case string:
++			if len(v) > 2048 {
++				return result, fmt.Errorf("embedding batch exceeds 2048 items")
++			}
++			for _, item := range v {
++				s, ok := item.(string)
++				if !ok {
++					return result, fmt.Errorf("embedding batch types must match")
++				}
++				if err := text(s); err != nil {
++					return result, err
++				}
++			}
++		case []any:
++			if len(v) > 2048 {
++				return result, fmt.Errorf("embedding batch exceeds 2048 items")
++			}
++			for _, item := range v {
++				row, ok := item.([]any)
++				if !ok {
++					return result, fmt.Errorf("embedding batch types must match")
++				}
++				if err := tokens(row); err != nil {
++					return result, err
++				}
++			}
++		default:
++			return result, fmt.Errorf("embedding input supports text or token-ID batches; multimodal input uses messages")
++		}
++	default:
++		return result, fmt.Errorf("embedding input must be text or token IDs")
++	}
++	return result, nil
++}
++
++func ValidateEmbedding(request Request) error {
++	e := request.Embedding
++	if e == nil {
++		return nil
++	}
++	invalid := func(message string) error { return NewError(ErrorInvalidRequest, "invalid_embedding", message, nil) }
++	if request.Stream || request.Realtime != nil || request.MLXVideo != nil || request.Multipart != nil || request.ChatOutput != nil || request.SpeechGeneration != nil || request.AudioGeneration != nil || request.ImageGeneration != nil || len(request.Tools) != 0 || request.Sampling.MaxOutputTokens != nil || request.Sampling.AutomaticOutput {
++		return invalid("embedding cannot be combined with generation, streaming, or tools")
++	}
++	if e.Dimensions != nil && (*e.Dimensions < 1 || *e.Dimensions > 65536) {
++		return invalid("dimensions must be between 1 and 65536")
++	}
++	if e.EncodingFormat != "" && e.EncodingFormat != "float" && e.EncodingFormat != "base64" {
++		return invalid("encoding_format must be float or base64")
++	}
++	if len(e.User) > 1024 || len(e.Space) > 256 {
++		return invalid("embedding user or space exceeds its limit")
++	}
++	if e.Space != "" && !ValidEmbeddingSpace(e.Space) {
++		return invalid("embedding_space must be an ASCII identifier")
++	}
++	if e.ChatInput {
++		if len(e.Input) != 0 || len(request.Messages) != 1 || request.Messages[0].Role != RoleUser {
++			return invalid("messages embedding requires one user input and optional system instruction")
++		}
++		for _, content := range request.Messages[0].Content {
++			if content.Kind != ContentText && content.Kind != ContentImage && content.Kind != ContentVideo {
++				return invalid("embedding messages support text, image, or video content")
++			}
++		}
++	} else {
++		if _, err := RenderEmbeddingInput(request); err != nil {
++			return invalid(err.Error())
++		}
++	}
++	return nil
++}
++
++// RenderEmbeddingInput preserves scalar/batch shape while honoring neutral text
++// mutations. A plugin may not silently turn independent batch items into a
++// conversation, or inject instructions the standard input wire cannot express.
++func RenderEmbeddingInput(request Request) (json.RawMessage, error) {
++	e := request.Embedding
++	if e == nil || e.ChatInput {
++		return nil, fmt.Errorf("standard embedding input required")
++	}
++	summary, err := SummarizeEmbeddingInput(e.Input)
++	if err != nil {
++		return nil, err
++	}
++	if len(request.Instructions) != 0 {
++		return nil, fmt.Errorf("standard embedding input cannot represent injected instructions")
++	}
++	if summary.TokenInput {
++		if len(request.Messages) != 0 {
++			return nil, fmt.Errorf("token embedding input cannot represent injected messages")
++		}
++		return e.Input, nil
++	}
++	if len(request.Messages) != len(summary.Texts) {
++		return nil, fmt.Errorf("embedding text mutations must preserve batch boundaries")
++	}
++	texts := make([]string, len(request.Messages))
++	for i, message := range request.Messages {
++		if message.Role != RoleUser || len(message.Content) != 1 || message.Content[0].Kind != ContentText {
++			return nil, fmt.Errorf("embedding text input requires one text block per batch item")
++		}
++		texts[i] = message.Content[0].Text
++		if strings.TrimSpace(texts[i]) == "" {
++			return nil, fmt.Errorf("embedding text cannot be empty")
++		}
++	}
++	var original any
++	if err := json.Unmarshal(e.Input, &original); err != nil {
++		return nil, err
++	}
++	if _, scalar := original.(string); scalar {
++		return json.Marshal(texts[0])
++	}
++	return json.Marshal(texts)
 +}
 diff --git a/src/semantic-router/pkg/llmprotocol/image_generation.go b/src/semantic-router/pkg/llmprotocol/image_generation.go
 index b7c67a1d9..0b6d88642 100644
@@ -3340,6 +4517,40 @@ index 30da7ef9b..d10e21dff 100644
  		return err
  	}
  	if err := validateImageGenerationEnum("output_format", options.OutputFormat, "", "png", "webp", "jpeg"); err != nil {
+diff --git a/src/semantic-router/pkg/llmprotocol/input_estimate.go b/src/semantic-router/pkg/llmprotocol/input_estimate.go
+index f6043cef1..a70cb2391 100644
+--- a/src/semantic-router/pkg/llmprotocol/input_estimate.go
++++ b/src/semantic-router/pkg/llmprotocol/input_estimate.go
+@@ -15,6 +15,7 @@ const (
+ // InputEstimate excludes generation limits. Consumers add the effective output
+ // reserve exactly once after resolving the selected model's known limits.
+ type InputEstimate struct {
++	Images          int
+ 	Tokens          int
+ 	TextBytes       int
+ 	StructuredBytes int
+@@ -28,6 +29,13 @@ func EstimateInput(request *Request) InputEstimate {
+ 	if request == nil {
+ 		return InputEstimate{}
+ 	}
++	if request.Embedding != nil && !request.Embedding.ChatInput {
++		if input, err := RenderEmbeddingInput(*request); err == nil {
++			if summary, err := SummarizeEmbeddingInput(input); err == nil {
++				return InputEstimate{Tokens: summary.MaxInputTokens, EquivalentBytes: saturatedMultiply(summary.MaxInputTokens, InputTextBytesPerToken)}
++			}
++		}
++	}
+ 	var estimate InputEstimate
+ 	framing := saturatedMultiply(len(request.Messages)+len(request.Instructions), InputMessageFramingTokens)
+ 	images := 0
+@@ -78,6 +86,7 @@ func EstimateInput(request *Request) InputEstimate {
+ 	if estimate.TextBytes%InputTextBytesPerToken != 0 {
+ 		textTokens++
+ 	}
++	estimate.Images = images
+ 	estimate.Tokens = SaturatingTokenSum(textTokens, estimate.StructuredBytes, saturatedMultiply(images, InputImageTokens), framing)
+ 	estimate.EquivalentBytes = saturatedMultiply(estimate.Tokens, InputTextBytesPerToken)
+ 	return estimate
 diff --git a/src/semantic-router/pkg/llmprotocol/mlx_video.go b/src/semantic-router/pkg/llmprotocol/mlx_video.go
 new file mode 100644
 index 000000000..6e963da13
@@ -3737,7 +4948,7 @@ index 000000000..255aed159
 +	return nil
 +}
 diff --git a/src/semantic-router/pkg/llmprotocol/types.go b/src/semantic-router/pkg/llmprotocol/types.go
-index e8d364bd4..6d329abe5 100644
+index e8d364bd4..638f55226 100644
 --- a/src/semantic-router/pkg/llmprotocol/types.go
 +++ b/src/semantic-router/pkg/llmprotocol/types.go
 @@ -11,6 +11,16 @@ import (
@@ -3757,19 +4968,21 @@ index e8d364bd4..6d329abe5 100644
  const (
  	OpenAIChatV1        WireFormat = "openai.chat.v1"
  	OpenAIResponsesV1   WireFormat = "openai.responses.v1"
-@@ -20,7 +30,10 @@ const (
+@@ -20,7 +30,12 @@ const (
  	// sink dialect: a responses hosted image_generation request is re-encoded
  	// to /v1/images/generations, and the generated image is decoded back into
  	// the protocol-neutral GeneratedImage output item.
 -	OpenAIImagesV1 WireFormat = "openai.images.v1"
 +	OpenAIImagesV1      WireFormat = "openai.images.v1"
 +	OpenAISpeechV1      WireFormat = "openai.speech.v1"
++	OpenAIEmbeddingsV1  WireFormat = "openai.embeddings.v1"
++	ArkEmbeddingsV1     WireFormat = "ark.embeddings.v1"
 +	MLXVideoV1          WireFormat = "mlx.video.v1"
 +	OmniAudioGenerateV1 WireFormat = "omni.audio-generate.v1"
  )
  
  type Role string
-@@ -246,12 +259,18 @@ type TrustedMetadata struct {
+@@ -246,12 +261,19 @@ type TrustedMetadata struct {
  }
  
  type Request struct {
@@ -3783,19 +4996,23 @@ index e8d364bd4..6d329abe5 100644
  	Tools             []Tool
  	ImageGeneration   *ImageGenerationOptions
 +	SpeechGeneration  *SpeechGenerationOptions
++	Embedding         *EmbeddingOptions
 +	MLXVideo          *MLXVideoOptions
 +	AudioGeneration   *AudioGenerationOptions
  	ToolChoice        ToolChoice
  	ParallelToolCalls *bool
  	CandidateCount    *int64
 diff --git a/src/semantic-router/pkg/llmprotocol/validate.go b/src/semantic-router/pkg/llmprotocol/validate.go
-index 36725420f..4488de8e1 100644
+index 36725420f..4c02d2c0c 100644
 --- a/src/semantic-router/pkg/llmprotocol/validate.go
 +++ b/src/semantic-router/pkg/llmprotocol/validate.go
-@@ -10,6 +10,33 @@ import (
+@@ -10,6 +10,36 @@ import (
  )
  
  func ValidateRequest(request Request, limits Limits) error {
++	if err := ValidateEmbedding(request); err != nil {
++		return err
++	}
 +	if err := ValidateRealtime(request); err != nil {
 +		return err
 +	}
@@ -3826,6 +5043,284 @@ index 36725420f..4488de8e1 100644
  	blocks, err := validateRequestEnvelope(request, limits)
  	if err != nil {
  		return err
+diff --git a/src/semantic-router/pkg/protocolcodec/ark_embeddings_codec.go b/src/semantic-router/pkg/protocolcodec/ark_embeddings_codec.go
+new file mode 100644
+index 000000000..a59061083
+--- /dev/null
++++ b/src/semantic-router/pkg/protocolcodec/ark_embeddings_codec.go
+@@ -0,0 +1,174 @@
++package protocolcodec
++
++import (
++	"encoding/base64"
++	"encoding/json"
++	"fmt"
++	"strings"
++
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
++)
++
++// ArkEmbeddingsCodec is an egress dialect. Ark's content array describes one
++// multimodal sample, whereas an OpenAI input array describes independent samples.
++type ArkEmbeddingsCodec struct{ EmbeddingsCodec }
++
++func (ArkEmbeddingsCodec) Format() llmprotocol.WireFormat { return llmprotocol.ArkEmbeddingsV1 }
++func (ArkEmbeddingsCodec) Capabilities() llmprotocol.CapabilitySet {
++	return llmprotocol.Capabilities(llmprotocol.CapabilityText, llmprotocol.CapabilityEmbedding, llmprotocol.CapabilityImageInput)
++}
++
++func (ArkEmbeddingsCodec) DecodeRequest([]byte, llmprotocol.Policy) (llmprotocol.Request, llmprotocol.Envelope, llmprotocol.Diagnostics, error) {
++	return llmprotocol.Request{}, llmprotocol.Envelope{}, nil, invalidRequestTranslation(fmt.Errorf("Ark is a backend dialect; use /v1/embeddings with input or messages"))
++}
++
++func (ArkEmbeddingsCodec) EncodeRequest(request llmprotocol.Request, _ llmprotocol.Envelope, _ llmprotocol.Policy) ([]byte, llmprotocol.Diagnostics, error) {
++	fail := func(message string) ([]byte, llmprotocol.Diagnostics, error) {
++		return nil, nil, invalidRequestTranslation(fmt.Errorf("%s", message))
++	}
++	if err := ValidateMediaTask(request, llmprotocol.ArkEmbeddingsV1); err != nil {
++		return nil, nil, err
++	}
++	if err := llmprotocol.ValidateEmbedding(request); err != nil {
++		return nil, nil, err
++	}
++	e := request.Embedding
++	if e.User != "" {
++		return fail("Ark embedding adapter does not support user")
++	}
++	if !e.ChatInput {
++		input, err := llmprotocol.RenderEmbeddingInput(request)
++		if err != nil {
++			return nil, nil, err
++		}
++		summary, err := llmprotocol.SummarizeEmbeddingInput(input)
++		if err != nil {
++			return nil, nil, err
++		}
++		if summary.TokenInput || summary.BatchSize != 1 {
++			return fail("Ark embeddings support one text or multimodal sample per request")
++		}
++	}
++	var parts []map[string]any
++	for _, message := range request.Messages {
++		for _, content := range message.Content {
++			if content.Cache != nil || len(content.Citations) > 0 {
++				return fail("Ark embedding content cannot carry cache directives or citations")
++			}
++			switch content.Kind {
++			case llmprotocol.ContentText:
++				parts = append(parts, map[string]any{"type": "text", "text": content.Text})
++			case llmprotocol.ContentImage:
++				if content.Detail != "" && content.Detail != "auto" {
++					return fail("Ark embeddings cannot represent image detail")
++				}
++				url := content.URL
++				if content.Data != "" {
++					url = "data:" + content.MediaType + ";base64," + content.Data
++				}
++				if url == "" || content.FileID != "" {
++					return fail("Ark embeddings require image URLs or inline image data")
++				}
++				parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]string{"url": url}})
++			default:
++				return fail("Ark embedding adapter supports text and image content")
++			}
++		}
++	}
++	if len(parts) == 0 {
++		return fail("Ark embedding content cannot be empty")
++	}
++	wire := map[string]any{"model": request.Model, "input": parts}
++	var instructions []string
++	for _, block := range request.Instructions {
++		for _, content := range block.Content {
++			if content.Kind != llmprotocol.ContentText || content.Cache != nil || len(content.Citations) > 0 {
++				return fail("Ark instructions require plain text")
++			}
++			instructions = append(instructions, content.Text)
++		}
++	}
++	if len(instructions) > 0 {
++		wire["instructions"] = strings.Join(instructions, "\n")
++	}
++
++	if e.Dimensions != nil {
++		wire["dimensions"] = *e.Dimensions
++	}
++	if e.EncodingFormat != "" {
++		wire["encoding_format"] = e.EncodingFormat
++	}
++	body, err := json.Marshal(wire)
++	return body, nil, err
++}
++
++// TranslateEmbeddingResponse changes only the response container, retaining
++// vector bytes, modality usage details and provider identifiers. It never
++// interprets vectors as assistant text or runs generation response plugins.
++func TranslateEmbeddingResponse(body []byte, source, target llmprotocol.WireFormat, options *llmprotocol.EmbeddingOptions) ([]byte, error) {
++	if source != llmprotocol.ArkEmbeddingsV1 || target != llmprotocol.OpenAIEmbeddingsV1 || options == nil {
++		return nil, fmt.Errorf("unsupported embedding response translation")
++	}
++	var wire map[string]json.RawMessage
++	if err := json.Unmarshal(body, &wire); err != nil {
++		return nil, err
++	}
++	if string(wire["object"]) != `"list"` || len(wire["error"]) > 0 {
++		return nil, fmt.Errorf("invalid embedding response envelope")
++	}
++	var item map[string]json.RawMessage
++	if err := json.Unmarshal(wire["data"], &item); err != nil {
++		return nil, err
++	}
++	if string(item["object"]) != `"embedding"` {
++		return nil, fmt.Errorf("invalid embedding object")
++	}
++	dimensions, err := embeddingVectorDimensions(item["embedding"], options.EncodingFormat)
++	if err != nil {
++		return nil, err
++	}
++	if options.Dimensions != nil && dimensions != int(*options.Dimensions) {
++		return nil, fmt.Errorf("upstream embedding dimensions do not match the request")
++	}
++	item["index"] = json.RawMessage("0")
++	data, err := json.Marshal([]map[string]json.RawMessage{item})
++	if err != nil {
++		return nil, err
++	}
++	wire["data"] = data
++	return json.Marshal(wire)
++}
++
++func embeddingVectorDimensions(raw json.RawMessage, encoding string) (int, error) {
++	dimensions := 0
++	if encoding == "base64" {
++		var value string
++		if err := json.Unmarshal(raw, &value); err != nil {
++			return 0, err
++		}
++		decoded, err := base64.StdEncoding.DecodeString(value)
++		if err != nil || len(decoded)%4 != 0 {
++			return 0, fmt.Errorf("invalid base64 float32 embedding")
++		}
++		dimensions = len(decoded) / 4
++	} else {
++		var values []json.RawMessage
++		if err := json.Unmarshal(raw, &values); err != nil {
++			return 0, err
++		}
++		for _, value := range values {
++			var number float64
++			if string(value) == "null" {
++				return 0, fmt.Errorf("null embedding value")
++			}
++			if err := json.Unmarshal(value, &number); err != nil {
++				return 0, err
++			}
++		}
++		dimensions = len(values)
++	}
++	if dimensions < 1 || dimensions > 65536 {
++		return 0, fmt.Errorf("invalid embedding dimensions")
++	}
++	return dimensions, nil
++}
+diff --git a/src/semantic-router/pkg/protocolcodec/ark_embeddings_codec_test.go b/src/semantic-router/pkg/protocolcodec/ark_embeddings_codec_test.go
+new file mode 100644
+index 000000000..1e36fead4
+--- /dev/null
++++ b/src/semantic-router/pkg/protocolcodec/ark_embeddings_codec_test.go
+@@ -0,0 +1,92 @@
++package protocolcodec
++
++import (
++	"encoding/json"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
++)
++
++func TestArkEmbeddingRequestPreservesOneSample(t *testing.T) {
++	for _, body := range []string{
++		`{"model":"auto","input":"blue sea","dimensions":1024,"encoding_format":"base64"}`,
++		`{"model":"auto","input":["blue sea"]}`,
++		`{"model":"auto","messages":[{"role":"user","content":[{"type":"text","text":"blue sea"},{"type":"image_url","image_url":{"url":"https://example.test/sea.jpg"}}]}]}`,
++	} {
++		request, _, _, err := (EmbeddingsCodec{}).DecodeRequest([]byte(body), llmprotocol.DefaultPolicy())
++		require.NoError(t, err)
++		request.Model = "doubao-embedding-vision-251215"
++		request.Embedding.Space = "doubao-vision-251215"
++		// The provider projection must use post-policy text.
++		request.Messages[0].Content[0].Text = "redacted sea"
++		encoded, _, err := (ArkEmbeddingsCodec{}).EncodeRequest(request, llmprotocol.Envelope{}, llmprotocol.DefaultPolicy())
++		require.NoError(t, err)
++		var wire map[string]any
++		require.NoError(t, json.Unmarshal(encoded, &wire))
++		require.Equal(t, request.Model, wire["model"])
++		require.NotContains(t, wire, "embedding_space")
++		parts := wire["input"].([]any)
++		require.Equal(t, "redacted sea", parts[0].(map[string]any)["text"])
++		if request.Embedding.ChatInput {
++			require.Len(t, parts, 2)
++		}
++	}
++}
++
++func TestArkEmbeddingRejectsLossyInputs(t *testing.T) {
++	for _, body := range []string{
++		`{"model":"auto","input":["first","second"]}`,
++		`{"model":"auto","input":[1,2]}`,
++		`{"model":"auto","input":"one","user":"user-id"}`,
++		`{"model":"auto","messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.test/a.jpg","detail":"high"}}]}]}`,
++	} {
++		request, _, _, err := (EmbeddingsCodec{}).DecodeRequest([]byte(body), llmprotocol.DefaultPolicy())
++		require.NoError(t, err)
++		_, _, err = (ArkEmbeddingsCodec{}).EncodeRequest(request, llmprotocol.Envelope{}, llmprotocol.DefaultPolicy())
++		require.Error(t, err)
++	}
++}
++
++func TestArkEmbeddingResponseTranslation(t *testing.T) {
++	for _, vector := range []string{`[0.1234567890123,-2e-20]`, `"AAAAAAAAgD8="`} {
++		options := &llmprotocol.EmbeddingOptions{Dimensions: llmprotocol.Int64(2)}
++		if vector[0] == '"' {
++			options.EncodingFormat = "base64"
++		}
++		body := []byte(`{"id":"fixture","created":123,"object":"list","model":"doubao","data":{"object":"embedding","embedding":` + vector + `},"usage":{"prompt_tokens":4,"prompt_tokens_details":{"image_tokens":3,"text_tokens":1},"total_tokens":4}}`)
++		encoded, err := TranslateEmbeddingResponse(body, llmprotocol.ArkEmbeddingsV1, llmprotocol.OpenAIEmbeddingsV1, options)
++		require.NoError(t, err)
++		var wire struct {
++			Data []struct {
++				Index     int
++				Embedding json.RawMessage
++			}
++			Usage json.RawMessage
++			ID    string
++		}
++		require.NoError(t, json.Unmarshal(encoded, &wire))
++		require.Len(t, wire.Data, 1)
++		require.Equal(t, 0, wire.Data[0].Index)
++		require.Equal(t, vector, string(wire.Data[0].Embedding))
++		require.Contains(t, string(wire.Usage), "image_tokens")
++		require.Equal(t, "fixture", wire.ID)
++		options.Dimensions = llmprotocol.Int64(3)
++		_, err = TranslateEmbeddingResponse(body, llmprotocol.ArkEmbeddingsV1, llmprotocol.OpenAIEmbeddingsV1, options)
++		require.Error(t, err)
++	}
++	for _, vector := range []string{`null`, `[]`, `[null]`, `["wrong"]`, `[[1]]`, `"bad-base64"`} {
++		_, err := TranslateEmbeddingResponse([]byte(`{"object":"list","data":{"object":"embedding","embedding":`+vector+`}}`), llmprotocol.ArkEmbeddingsV1, llmprotocol.OpenAIEmbeddingsV1, &llmprotocol.EmbeddingOptions{})
++		require.Error(t, err)
++	}
++}
++
++func TestArkEmbeddingInstructions(t *testing.T) {
++	request, _, _, err := (EmbeddingsCodec{}).DecodeRequest([]byte(`{"model":"auto","messages":[{"role":"system","content":"Target_modality: text.\nInstruction:Represent the content\nQuery:"},{"role":"user","content":"sea"}]}`), llmprotocol.DefaultPolicy())
++	require.NoError(t, err)
++	encoded, _, err := (ArkEmbeddingsCodec{}).EncodeRequest(request, llmprotocol.Envelope{}, llmprotocol.DefaultPolicy())
++	require.NoError(t, err)
++	var wire map[string]any
++	require.NoError(t, json.Unmarshal(encoded, &wire))
++	require.Equal(t, "Target_modality: text.\nInstruction:Represent the content\nQuery:", wire["instructions"])
++}
 diff --git a/src/semantic-router/pkg/protocolcodec/audio_generation_codec.go b/src/semantic-router/pkg/protocolcodec/audio_generation_codec.go
 new file mode 100644
 index 000000000..8fe5a8a2b
@@ -4198,6 +5693,247 @@ index 000000000..dc250e15b
 +	state.parts = append(state.parts, chatContentWire{Type: "video_url", VideoURL: &chatVideoURLWire{URL: source}, CacheControl: encodeAnthropicCacheControl(c.Cache)})
 +	return nil
 +}
+diff --git a/src/semantic-router/pkg/protocolcodec/embeddings_codec.go b/src/semantic-router/pkg/protocolcodec/embeddings_codec.go
+new file mode 100644
+index 000000000..a59700198
+--- /dev/null
++++ b/src/semantic-router/pkg/protocolcodec/embeddings_codec.go
+@@ -0,0 +1,108 @@
++package protocolcodec
++
++import (
++	"encoding/json"
++	"fmt"
++	"reflect"
++
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
++)
++
++type EmbeddingsCodec struct{ SpeechCodec }
++
++func (EmbeddingsCodec) Format() llmprotocol.WireFormat { return llmprotocol.OpenAIEmbeddingsV1 }
++func (EmbeddingsCodec) Capabilities() llmprotocol.CapabilitySet {
++	return llmprotocol.Capabilities(llmprotocol.CapabilityText, llmprotocol.CapabilityEmbedding,
++		llmprotocol.CapabilityEmbeddingTokenInput, llmprotocol.CapabilityImageInput, llmprotocol.CapabilityVideoInput)
++}
++
++type embeddingsWire struct {
++	Model          string          `json:"model"`
++	Input          json.RawMessage `json:"input,omitempty"`
++	Messages       json.RawMessage `json:"messages,omitempty"`
++	Dimensions     *int64          `json:"dimensions,omitempty"`
++	EncodingFormat string          `json:"encoding_format,omitempty"`
++	User           string          `json:"user,omitempty"`
++	Space          string          `json:"embedding_space,omitempty"`
++}
++
++func (EmbeddingsCodec) DecodeRequest(body []byte, policy llmprotocol.Policy) (llmprotocol.Request, llmprotocol.Envelope, llmprotocol.Diagnostics, error) {
++	var wire embeddingsWire
++	fail := func(err error) (llmprotocol.Request, llmprotocol.Envelope, llmprotocol.Diagnostics, error) {
++		return llmprotocol.Request{}, llmprotocol.Envelope{}, nil, invalidRequestTranslation(err)
++	}
++	if err := decodeWire(body, &wire, policy); err != nil {
++		return fail(err)
++	}
++	if err := validateExactJSONFieldNames(body, reflect.TypeOf(wire)); err != nil {
++		return fail(err)
++	}
++	if (len(wire.Input) == 0) == (len(wire.Messages) == 0) {
++		return fail(fmt.Errorf("provide exactly one of input or messages"))
++	}
++	request := llmprotocol.Request{Generation: 1, Model: wire.Model}
++	if len(wire.Messages) != 0 {
++		// Reuse the content grammar, while retaining a distinct embedding task
++		// and HTTP operation. No Chat request is sent to an engine.
++		content, _ := json.Marshal(map[string]any{"model": wire.Model, "messages": wire.Messages})
++		parsed, _, _, err := (OpenAIChatCodec{}).DecodeRequest(content, policy)
++		if err != nil {
++			return fail(err)
++		}
++		request.Messages, request.Instructions = parsed.Messages, parsed.Instructions
++	} else {
++		summary, err := llmprotocol.SummarizeEmbeddingInput(wire.Input)
++		if err != nil {
++			return fail(err)
++		}
++		for _, text := range summary.Texts {
++			request.Messages = append(request.Messages, llmprotocol.Message{Role: llmprotocol.RoleUser, Content: []llmprotocol.Content{{Kind: llmprotocol.ContentText, Text: text}}})
++		}
++	}
++	request.Embedding = &llmprotocol.EmbeddingOptions{Input: wire.Input, ChatInput: len(wire.Messages) != 0,
++		Dimensions: wire.Dimensions, EncodingFormat: wire.EncodingFormat, User: wire.User, Space: wire.Space}
++	if err := llmprotocol.ValidateEmbedding(request); err != nil {
++		return fail(err)
++	}
++	return request, llmprotocol.Envelope{}, nil, nil
++}
++
++func (EmbeddingsCodec) EncodeRequest(request llmprotocol.Request, _ llmprotocol.Envelope, policy llmprotocol.Policy) ([]byte, llmprotocol.Diagnostics, error) {
++	if err := ValidateMediaTask(request, llmprotocol.OpenAIEmbeddingsV1); err != nil {
++		return nil, nil, err
++	}
++	if err := llmprotocol.ValidateEmbedding(request); err != nil {
++		return nil, nil, err
++	}
++	e := request.Embedding
++	wire := embeddingsWire{Model: request.Model, Input: e.Input, Dimensions: e.Dimensions, EncodingFormat: e.EncodingFormat, User: e.User}
++	if !e.ChatInput {
++		var err error
++		wire.Input, err = llmprotocol.RenderEmbeddingInput(request)
++		if err != nil {
++			return nil, nil, err
++		}
++	}
++	if e.ChatInput {
++		content := request
++		content.Embedding = nil
++		encoded, _, err := (OpenAIChatCodec{}).EncodeRequest(content, llmprotocol.Envelope{}, policy)
++		if err != nil {
++			return nil, nil, err
++		}
++		var fields map[string]json.RawMessage
++		if err := json.Unmarshal(encoded, &fields); err != nil {
++			return nil, nil, err
++		}
++		wire.Messages = fields["messages"]
++	}
++	body, err := json.Marshal(wire)
++	return body, nil, err
++}
++
++func (EmbeddingsCodec) DecodeResponse([]byte, llmprotocol.Policy) (llmprotocol.Response, llmprotocol.Envelope, llmprotocol.Diagnostics, error) {
++	return llmprotocol.Response{}, llmprotocol.Envelope{}, nil, fmt.Errorf("embedding responses require same-wire HTTP passthrough")
++}
++func (EmbeddingsCodec) EncodeResponse(llmprotocol.Response, llmprotocol.Envelope, llmprotocol.Policy) ([]byte, llmprotocol.Diagnostics, error) {
++	return nil, nil, fmt.Errorf("embedding responses require same-wire HTTP passthrough")
++}
+diff --git a/src/semantic-router/pkg/protocolcodec/embeddings_codec_test.go b/src/semantic-router/pkg/protocolcodec/embeddings_codec_test.go
+new file mode 100644
+index 000000000..abebd50b9
+--- /dev/null
++++ b/src/semantic-router/pkg/protocolcodec/embeddings_codec_test.go
+@@ -0,0 +1,121 @@
++package protocolcodec
++
++import (
++	"encoding/json"
++	"reflect"
++	"testing"
++
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
++)
++
++func TestEmbeddingsPreserveBatchAndConsumeRoutingConstraint(t *testing.T) {
++	for _, input := range []string{`"你好 world"`, `["short","longer document"]`, `[1,2,300]`, `[[1],[2,3]]`} {
++		body := []byte(`{"model":"local-only","input":` + input + `,"dimensions":128,"encoding_format":"base64","user":"test","embedding_space":"qwen-v1"}`)
++		request, env, _, err := NewBuiltinEngine().DecodeRequestForMutation(llmprotocol.OpenAIEmbeddingsV1, body)
++		if err != nil {
++			t.Fatalf("%s: %v", input, err)
++		}
++		if request.Embedding.Space != "qwen-v1" {
++			t.Fatal("lost routing constraint")
++		}
++		request.Model = "actual-provider-model"
++		out, _, err := (EmbeddingsCodec{}).EncodeRequest(request, env, llmprotocol.DefaultPolicy())
++		if err != nil {
++			t.Fatal(err)
++		}
++		var wire map[string]json.RawMessage
++		if err := json.Unmarshal(out, &wire); err != nil {
++			t.Fatal(err)
++		}
++		if _, exists := wire["embedding_space"]; exists {
++			t.Fatal("router constraint leaked to provider")
++		}
++		var want, got any
++		json.Unmarshal([]byte(input), &want)
++		json.Unmarshal(wire["input"], &got)
++		if !reflect.DeepEqual(want, got) || string(wire["dimensions"]) != "128" || string(wire["model"]) != `"actual-provider-model"` || string(wire["encoding_format"]) != `"base64"` {
++			t.Fatalf("request changed: %s", out)
++		}
++		for _, target := range []llmprotocol.WireFormat{llmprotocol.OpenAIChatV1, llmprotocol.OpenAISpeechV1, llmprotocol.MLXVideoV1} {
++			if ValidateMediaTask(request, target) == nil {
++				t.Fatalf("embedding accepted by %s", target)
++			}
++		}
++	}
++	if ValidateMediaTask(llmprotocol.Request{}, llmprotocol.OpenAIEmbeddingsV1) == nil {
++		t.Fatal("accepted non-embedding task")
++	}
++}
++
++func TestEmbeddingsMultimodalUsesNativeMessages(t *testing.T) {
++	body := []byte(`{"model":"auto","messages":[{"role":"system","content":"Represent the user's input."},{"role":"user","content":[{"type":"text","text":"a cat"},{"type":"image_url","image_url":{"url":"https://example.invalid/cat.png"}}]}],"dimensions":64}`)
++	r, env, _, err := NewBuiltinEngine().DecodeRequestForMutation(llmprotocol.OpenAIEmbeddingsV1, body)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !r.Embedding.ChatInput || !llmprotocol.RequiredCapabilities(r).Supports(llmprotocol.CapabilityEmbedding|llmprotocol.CapabilityImageInput) {
++		t.Fatal("missing multimodal embedding capabilities")
++	}
++	out, _, err := (EmbeddingsCodec{}).EncodeRequest(r, env, llmprotocol.DefaultPolicy())
++	if err != nil {
++		t.Fatal(err)
++	}
++	var before, after map[string]any
++	json.Unmarshal(body, &before)
++	json.Unmarshal(out, &after)
++	if !reflect.DeepEqual(before, after) {
++		t.Fatalf("multimodal input changed: %s", out)
++	}
++}
++
++func TestEmbeddingsRejectMalformedOrUnsupportedInputs(t *testing.T) {
++	for _, body := range []string{
++		`{"model":"auto"}`, `{"model":"auto","input":null}`, `{"model":"auto","input":""}`,
++		`{"model":"auto","input":[]}`, `{"model":"auto","input":[[]]}`, `{"model":"auto","input":["x",1]}`,
++		`{"model":"auto","input":[-1]}`, `{"model":"auto","input":[1.5]}`, `{"model":"auto","input":[true]}`,
++		`{"model":"auto","input":"x","stream":true}`, `{"model":"auto","input":"x","dimensions":0}`,
++		`{"model":"auto","input":"x","dimensions":1.5}`, `{"model":"auto","input":"x","encoding_format":"int8"}`,
++		`{"model":"auto","input":"x","Input":"y"}`, `{"model":"auto","input":"x","input":"y"}`,
++		`{"model":"auto","input":"x","messages":[]}`, `{"model":"auto","messages":[]}`,
++		`{"model":"auto","messages":[{"role":"assistant","content":"x"}]}`,
++		`{"model":"auto","messages":[{"role":"user","content":"x"},{"role":"user","content":"y"}]}`,
++	} {
++		if _, _, _, err := NewBuiltinEngine().DecodeRequestForMutation(llmprotocol.OpenAIEmbeddingsV1, []byte(body)); err == nil {
++			t.Fatalf("accepted %s", body)
++		}
++	}
++}
++
++func TestEmbeddingContextLimitIsPerItem(t *testing.T) {
++	r, _, _, err := NewBuiltinEngine().DecodeRequestForMutation(llmprotocol.OpenAIEmbeddingsV1, []byte(`{"model":"auto","input":[[1,2,3],[4,5]]}`))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got := llmprotocol.EstimateInput(&r).Tokens; got != 3 {
++		t.Fatalf("got %d tokens; want longest item (3)", got)
++	}
++	if !llmprotocol.RequiredCapabilities(r).Supports(llmprotocol.CapabilityEmbeddingTokenInput) {
++		t.Fatal("token inputs must require explicit backend support")
++	}
++}
++
++func TestEmbeddingsEncodeNeutralTextMutationsWithoutLosingBatch(t *testing.T) {
++	request, env, _, err := NewBuiltinEngine().DecodeRequestForMutation(llmprotocol.OpenAIEmbeddingsV1, []byte(`{"model":"auto","input":["private","public"]}`))
++	if err != nil {
++		t.Fatal(err)
++	}
++	request.Messages[0].Content[0].Text = "redacted"
++	body, _, err := (EmbeddingsCodec{}).EncodeRequest(request, env, llmprotocol.DefaultPolicy())
++	if err != nil {
++		t.Fatal(err)
++	}
++	var wire map[string]json.RawMessage
++	json.Unmarshal(body, &wire)
++	if string(wire["input"]) != `["redacted","public"]` {
++		t.Fatalf("neutral mutation lost: %s", body)
++	}
++	request.Messages = request.Messages[:1]
++	if _, _, err := (EmbeddingsCodec{}).EncodeRequest(request, env, llmprotocol.DefaultPolicy()); err == nil {
++		t.Fatal("batch boundary mutation silently accepted")
++	}
++}
 diff --git a/src/semantic-router/pkg/protocolcodec/engine.go b/src/semantic-router/pkg/protocolcodec/engine.go
 index fa66a26c4..ab63302ae 100644
 --- a/src/semantic-router/pkg/protocolcodec/engine.go
@@ -4445,10 +6181,10 @@ index cebe08f3b..c108223b4 100644
  
 diff --git a/src/semantic-router/pkg/protocolcodec/media_task.go b/src/semantic-router/pkg/protocolcodec/media_task.go
 new file mode 100644
-index 000000000..b448eb1cd
+index 000000000..8d847316a
 --- /dev/null
 +++ b/src/semantic-router/pkg/protocolcodec/media_task.go
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,49 @@
 +package protocolcodec
 +
 +import "github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
@@ -4457,6 +6193,9 @@ index 000000000..b448eb1cd
 +// Text input support does not mean that a synthesis wire can generate a chat
 +// answer. The same guard is applied again at the final transport projection.
 +func ValidateMediaTask(request llmprotocol.Request, target llmprotocol.WireFormat) error {
++	if (request.Embedding != nil) != (target == llmprotocol.OpenAIEmbeddingsV1 || target == llmprotocol.ArkEmbeddingsV1) {
++		return llmprotocol.NewError(llmprotocol.ErrorUnsupportedFeature, "embedding_task_required", "embeddings require an embedding task and wire protocol", nil)
++	}
 +	if (request.MLXVideo != nil) != (target == llmprotocol.MLXVideoV1) {
 +		return llmprotocol.NewError(llmprotocol.ErrorUnsupportedFeature, "mlx_video_task_required", "MLX video requires its native JSON video task and exact wire", nil)
 +	}
@@ -5781,7 +7520,7 @@ index 000000000..ff42a67a0
 +	}
 +}
 diff --git a/src/semantic-router/pkg/protocolcodec/registry.go b/src/semantic-router/pkg/protocolcodec/registry.go
-index c3daea2d0..c290ccd6f 100644
+index c3daea2d0..60d170a7b 100644
 --- a/src/semantic-router/pkg/protocolcodec/registry.go
 +++ b/src/semantic-router/pkg/protocolcodec/registry.go
 @@ -89,7 +89,7 @@ func NewRegistry(codecs ...Codec) (*Registry, error) {
@@ -5789,7 +7528,7 @@ index c3daea2d0..c290ccd6f 100644
  
  func NewBuiltinRegistry() *Registry {
 -	registry, err := NewRegistry(OpenAIChatCodec{}, OpenAIResponsesCodec{}, AnthropicMessagesCodec{}, ImagesCodec{})
-+	registry, err := NewRegistry(RealtimeCodec{Protocol: llmprotocol.VLLMRealtimeV1}, RealtimeCodec{Protocol: llmprotocol.OmniSpeechStreamV1}, OpenAIChatCodec{}, OpenAIResponsesCodec{}, AnthropicMessagesCodec{}, ImagesCodec{}, SpeechCodec{}, AudioGenerationCodec{}, MLXVideoCodec{}, MultipartCodec{Task: llmprotocol.TaskVideoCreate}, MultipartCodec{Task: llmprotocol.TaskVideoSync}, MultipartCodec{Task: llmprotocol.TaskTranscription}, MultipartCodec{Task: llmprotocol.TaskTranslation}, MultipartCodec{Task: llmprotocol.TaskImageEdit})
++	registry, err := NewRegistry(RealtimeCodec{Protocol: llmprotocol.VLLMRealtimeV1}, RealtimeCodec{Protocol: llmprotocol.OmniSpeechStreamV1}, OpenAIChatCodec{}, OpenAIResponsesCodec{}, AnthropicMessagesCodec{}, ImagesCodec{}, EmbeddingsCodec{}, ArkEmbeddingsCodec{}, SpeechCodec{}, AudioGenerationCodec{}, MLXVideoCodec{}, MultipartCodec{Task: llmprotocol.TaskVideoCreate}, MultipartCodec{Task: llmprotocol.TaskVideoSync}, MultipartCodec{Task: llmprotocol.TaskTranscription}, MultipartCodec{Task: llmprotocol.TaskTranslation}, MultipartCodec{Task: llmprotocol.TaskImageEdit})
  	if err != nil {
  		panic(err)
  	}
@@ -6130,26 +7869,91 @@ index 647e18388..a8c549d9d 100644
        }
      },
 diff --git a/src/semantic-router/pkg/selection/candidate_requirements.go b/src/semantic-router/pkg/selection/candidate_requirements.go
-index 7c53832c1..58b8b44a4 100644
+index 7c53832c1..3ca92acac 100644
 --- a/src/semantic-router/pkg/selection/candidate_requirements.go
 +++ b/src/semantic-router/pkg/selection/candidate_requirements.go
-@@ -19,6 +19,7 @@ type CandidateDemand struct {
- 	InputTokens       int
- 	MaxOutputTokens   *int64
- 	AutomaticOutput   bool
-+	NonTokenOutput    bool
+@@ -13,12 +13,18 @@ import (
+ // InputTokens excludes the output reserve. It is normally estimated; resolved
+ // automatic output uses the provider-rendered token count.
+ type CandidateDemand struct {
+-	Known             bool
+-	Capabilities      llmprotocol.CapabilitySet
+-	ModelCapabilities llmprotocol.CapabilitySet
+-	InputTokens       int
+-	MaxOutputTokens   *int64
+-	AutomaticOutput   bool
++	Known               bool
++	Capabilities        llmprotocol.CapabilitySet
++	ModelCapabilities   llmprotocol.CapabilitySet
++	InputTokens         int
++	MaxOutputTokens     *int64
++	AutomaticOutput     bool
++	NonTokenOutput      bool
++	Embedding           bool
++	EmbeddingSpace      string
++	EmbeddingDimensions int
++	EmbeddingImages     int
++	EmbeddingBatchSize  int
  }
  
  func DemandForRequest(request *llmprotocol.Request) CandidateDemand {
-@@ -52,6 +53,7 @@ func DemandForRequest(request *llmprotocol.Request) CandidateDemand {
+@@ -52,6 +58,21 @@ func DemandForRequest(request *llmprotocol.Request) CandidateDemand {
  	}
  	modelRequired, _ = llmprotocol.ParseCapabilities(filtered)
  	demand := CandidateDemand{Known: true, Capabilities: required, ModelCapabilities: modelRequired, InputTokens: llmprotocol.EstimateInput(request).Tokens}
-+	demand.NonTokenOutput = request.MLXVideo != nil || request.Realtime != nil || request.Multipart != nil && (request.Multipart.Task == llmprotocol.TaskImageEdit || request.Multipart.Task == llmprotocol.TaskVideoSync || request.Multipart.Task == llmprotocol.TaskVideoCreate) || request.AudioGeneration != nil || request.ImageGeneration != nil && request.ImageGeneration.Native != nil
++	demand.NonTokenOutput = request.Embedding != nil || request.MLXVideo != nil || request.Realtime != nil || request.Multipart != nil && (request.Multipart.Task == llmprotocol.TaskImageEdit || request.Multipart.Task == llmprotocol.TaskVideoSync || request.Multipart.Task == llmprotocol.TaskVideoCreate) || request.AudioGeneration != nil || request.ImageGeneration != nil && request.ImageGeneration.Native != nil
++	if request.Embedding != nil {
++		demand.Embedding = true
++		demand.EmbeddingImages = llmprotocol.EstimateInput(request).Images
++		demand.EmbeddingSpace = request.Embedding.Space
++		demand.EmbeddingBatchSize = 1
++		if request.Embedding.Dimensions != nil {
++			demand.EmbeddingDimensions = int(*request.Embedding.Dimensions)
++		}
++		if !request.Embedding.ChatInput {
++			if summary, err := llmprotocol.SummarizeEmbeddingInput(request.Embedding.Input); err == nil {
++				demand.EmbeddingBatchSize = summary.BatchSize
++			}
++		}
++	}
  	demand.AutomaticOutput = request.Sampling.AutomaticOutput
  	if request.Sampling.AutomaticInputTokens != nil {
  		demand.InputTokens = int(*request.Sampling.AutomaticInputTokens)
-@@ -95,10 +97,10 @@ func ValidateCandidateRequirements(requirements *config.CandidateRequirements, m
+@@ -79,6 +100,33 @@ func CandidateRequirementsEnabled(requirements *config.CandidateRequirements) bo
+ // ValidateCandidateRequirements is shared by live selection, Preview, and
+ // individual Looper calls. Missing required metadata excludes a candidate.
+ func ValidateCandidateRequirements(requirements *config.CandidateRequirements, model string, params config.ModelParams, demand CandidateDemand) error {
++	if demand.Embedding {
++		e := params.Embedding
++		if e == nil || e.Space == "" || e.Dimensions < 1 || e.MaxBatchSize < 1 {
++			return fmt.Errorf("%w: model %q lacks declared embedding space and limits", ErrNoEligibleCandidates, model)
++		}
++		if demand.EmbeddingSpace != "" && demand.EmbeddingSpace != e.Space {
++			return fmt.Errorf("%w: model %q belongs to a different embedding space", ErrNoEligibleCandidates, model)
++		}
++		minimum := e.MinDimensions
++		if minimum == 0 {
++			minimum = e.Dimensions
++		}
++		if demand.EmbeddingDimensions != 0 && (demand.EmbeddingDimensions < minimum || demand.EmbeddingDimensions > e.Dimensions || !e.AllowsDimensions(demand.EmbeddingDimensions)) {
++			return fmt.Errorf("%w: model %q does not support the requested embedding dimensions", ErrNoEligibleCandidates, model)
++		}
++		// Operators may declare an engine's bounded image preprocessing estimate.
++		// Leave the generic conservative reserve intact when none is declared.
++		if e.ImageTokenEstimate > 0 && demand.EmbeddingImages > 0 && demand.EmbeddingImages <= math.MaxInt/llmprotocol.InputImageTokens {
++			original := demand.EmbeddingImages * llmprotocol.InputImageTokens
++			if demand.InputTokens >= original && demand.EmbeddingImages <= math.MaxInt/e.ImageTokenEstimate {
++				demand.InputTokens = llmprotocol.SaturatingTokenSum(demand.InputTokens-original, demand.EmbeddingImages*e.ImageTokenEstimate)
++			}
++		}
++		if demand.EmbeddingBatchSize < 1 || demand.EmbeddingBatchSize > e.MaxBatchSize {
++			return fmt.Errorf("%w: model %q does not support the embedding batch size", ErrNoEligibleCandidates, model)
++		}
++	}
+ 	if requirements == nil {
+ 		return nil
+ 	}
+@@ -95,10 +143,10 @@ func ValidateCandidateRequirements(requirements *config.CandidateRequirements, m
  		if demand.InputTokens < 0 {
  			return fmt.Errorf("%w: request input estimate is invalid", ErrNoEligibleCandidates)
  		}
@@ -6162,6 +7966,41 @@ index 7c53832c1..58b8b44a4 100644
  			return fmt.Errorf("%w: an explicit caller or request policy output limit is required", ErrNoEligibleCandidates)
  		}
  		reserve := 0
+diff --git a/src/semantic-router/pkg/selection/candidate_requirements_test.go b/src/semantic-router/pkg/selection/candidate_requirements_test.go
+index 4daf11592..d6188522f 100644
+--- a/src/semantic-router/pkg/selection/candidate_requirements_test.go
++++ b/src/semantic-router/pkg/selection/candidate_requirements_test.go
+@@ -5,6 +5,7 @@ import (
+ 	"errors"
+ 	"testing"
+ 
++	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/catalog"
+ 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/config"
+ 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/llmprotocol"
+ )
+@@ -177,3 +178,22 @@ func TestCandidateCapabilityEligibilityMatrix(t *testing.T) {
+ 		t.Fatalf("permissive default must admit every model, got %v", err)
+ 	}
+ }
++
++func TestEmbeddingImageBudgetUsesDeclaredPreprocessing(t *testing.T) {
++	request := &llmprotocol.Request{Embedding: &llmprotocol.EmbeddingOptions{ChatInput: true}, Messages: []llmprotocol.Message{{Role: llmprotocol.RoleUser, Content: []llmprotocol.Content{{Kind: llmprotocol.ContentText, Text: "sea"}, {Kind: llmprotocol.ContentImage, URL: "https://example.test/image.jpg"}}}}}
++	demand := DemandForRequest(request)
++	params := config.ModelParams{ContextWindowSize: 4096, Embedding: &catalog.EmbeddingModel{Space: "qwen-test", Dimensions: 2048, MinDimensions: 64, MaxBatchSize: 1, ImageTokenEstimate: 1024}}
++	requirements := &config.CandidateRequirements{Context: config.CandidateContextKnownLimits}
++	if err := ValidateCandidateRequirements(requirements, "embedding", params, demand); err != nil {
++		t.Fatal(err)
++	}
++	params.Embedding.ImageTokenEstimate = 0
++	if err := ValidateCandidateRequirements(requirements, "embedding", params, demand); err == nil {
++		t.Fatal("generic image reserve must remain conservative")
++	}
++	params.Embedding.ImageTokenEstimate = 1024
++	demand.InputTokens += 4096
++	if err := ValidateCandidateRequirements(requirements, "embedding", params, demand); err == nil {
++		t.Fatal("text must still count toward the input budget")
++	}
++}
 diff --git a/src/semantic-router/pkg/selection/native_media_budget_test.go b/src/semantic-router/pkg/selection/native_media_budget_test.go
 new file mode 100644
 index 000000000..554ec6d84
@@ -6197,10 +8036,10 @@ index 000000000..554ec6d84
 +}
 diff --git a/src/vllm-sr/cli/generated_protocols.py b/src/vllm-sr/cli/generated_protocols.py
 new file mode 100644
-index 000000000..073c430f7
+index 000000000..be6182cfd
 --- /dev/null
 +++ b/src/vllm-sr/cli/generated_protocols.py
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,22 @@
 +# Code generated by tools/catalog/generate_model_catalog.py; DO NOT EDIT.
 +
 +SUPPORTED_PROTOCOLS = frozenset(
@@ -6219,6 +8058,8 @@ index 000000000..073c430f7
 +        "openai/responses@1",
 +        "anthropic/messages@1",
 +        "mlx/video@1",
++        "openai/embeddings@1",
++        "ark/embeddings@1",
 +    }
 +)
 diff --git a/src/vllm-sr/cli/model_catalog_validation.py b/src/vllm-sr/cli/model_catalog_validation.py
@@ -6379,6 +8220,89 @@ index 000000000..6efd1c1c9
 +`_resolve_audio_format`, and streaming audio metadata. Interface support is not
 +evidence that a particular model can produce audio; model execution is a separate
 +acceptance layer.
+diff --git a/website/docs/api/native-embeddings.md b/website/docs/api/native-embeddings.md
+new file mode 100644
+index 000000000..da3741fb6
+--- /dev/null
++++ b/website/docs/api/native-embeddings.md
+@@ -0,0 +1,77 @@
++# Embedding request routing
++
++Design in progress. Acceptance is recorded separately from implementation.
++
++The public operation is `POST /v1/embeddings`. Envoy authenticates the caller,
++native SR validates the request and chooses a declared embedding backend, and
++Envoy forwards the request and response. Embedding requests do not become Chat
++Completions requests and do not enable SR's internal semantic classifiers.
++
++The existing `auto`, `local-only`, and `cloud-only` entrypoints retain their scope.
++Only models declaring the embedding task and the concrete input capabilities can
++be selected. Cloud and local are deployment scopes, not separate wire protocols.
++
++## Input and output contract
++
++- OpenAI text embedding input: one string, a nonempty string batch, one token-ID
++  sequence, or a batch of token-ID sequences. A backend must explicitly support
++  token input before receiving it. Preserve item order and batch boundaries.
++- Multimodal embedding uses the vLLM `messages` extension, separate from `input`.
++  Supported input modalities must be declared by the model. Do not interpret
++  arbitrary vendor fields as interchangeable multimodal contracts.
++- Preserve `dimensions`, `encoding_format` (`float` or `base64`), and `user`.
++  Reject unsupported fields, streaming, empty input, mixed batch types, invalid
++  dimensions, and conflicting input forms before dispatch.
++- Responses, usage, indices, backend errors, and rate-limit headers pass through
++  without converting embedding vectors to Chat messages or changing their values.
++
++## Vector-space isolation
++
++Model configuration declares an embedding space, default/supported dimensions,
++and batch limit. A space identifies weights/revision, tokenizer and processor,
++pooling, normalization, and relevant precision choices. Equal vector length alone
++does not establish compatibility. Quantized variants have distinct space IDs
++unless an operator has validated interoperability for the actual application.
++
++The optional request field `embedding_space` constrains native selection and is
++consumed by SR. It is not forwarded to an OpenAI backend. If a recipe contains
++multiple compatible spaces and the caller does not choose one, fail explicitly
++instead of changing the vector space according to candidate order. No implicit
++cross-space fallback, model substitution, or retry is introduced.
++
++Dimension and batch limits are checked before model selection. Context limits
++apply to each item, not the sum of a batch. The selected space is exposed in a
++response header so clients can record the vector identity with their index.
++
++## Project A and deployment
++
++Project A's `stack.yaml` owns backend URL, scope, authentication references,
++model identity, embedding constraints, and host runtime settings. Credentials
++remain in the private dotenv file. Public examples contain no fleet addresses.
++
++On Apple Silicon, a host embedding engine exposes the same authenticated HTTP
++operation to the K8s gateway. It loads the actual embedding checkpoint, performs
++the model's prescribed last-token pooling and normalization, and limits batch,
++input size, and concurrency. It is a model engine, not a second router. The
++existing video and text engines keep their own endpoints and weights.
++
++Real deployment requires measured memory headroom with the existing H3 workload.
++If the requested checkpoint cannot coexist safely, the operator chooses a
++quantized variant, a smaller checkpoint, or an explicit scheduling policy before
++weights are downloaded and the service is started.
++
++## Validation
++
++Protocol tests cover batch fidelity, native input forms, dimensions, encoding,
++malformed input, and task isolation. Native SR integration covers local/cloud
++scope, vector-space conflicts, model capabilities, forged routing headers,
++authentication, and backend error passthrough. Real model checks cover finite
++vectors, dimensionality, normalization, repeatability, text/image retrieval, and
++memory usage. Existing Chat and H3 requests are regression checked after rollout.
++
++Cloud acceptance requires a real embedding model and credentials. A successful
++mock route or a Chat-only cloud model is not cloud embedding acceptance.
++
++References: [Qwen model card](https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B),
++[vLLM embedding API](https://docs.vllm.ai/en/stable/models/pooling_models/embed/),
++[MLX Embeddings](https://github.com/Blaizzy/mlx-embeddings).
 diff --git a/website/docs/api/native-images.md b/website/docs/api/native-images.md
 new file mode 100644
 index 000000000..bb9b98bb4
@@ -6683,7 +8607,7 @@ index 000000000..fe7bec1e3
 +Async job creation/query/download/delete and realtime sessions are separate
 +protocol contracts; implementing sync does not establish their support.
 diff --git a/website/static/model-catalog/catalog.json b/website/static/model-catalog/catalog.json
-index 4889ddd8a..9eac7dc3a 100644
+index 4889ddd8a..71adb4d48 100644
 --- a/website/static/model-catalog/catalog.json
 +++ b/website/static/model-catalog/catalog.json
 @@ -93854,6 +93854,193 @@
@@ -6880,7 +8804,7 @@ index 4889ddd8a..9eac7dc3a 100644
      {
        "capabilities": [
          "chat",
-@@ -93928,6 +94115,26 @@
+@@ -93928,6 +94115,64 @@
          }
        ],
        "wire_format": "anthropic.messages.v1"
@@ -6904,10 +8828,48 @@ index 4889ddd8a..9eac7dc3a 100644
 +        }
 +      ],
 +      "wire_format": "mlx.video.v1"
++    },
++    {
++      "capabilities": [
++        "text",
++        "embedding",
++        "embedding_token_input",
++        "image_input",
++        "video_input"
++      ],
++      "default_base_path": "/v1",
++      "display_name": "OpenAI-compatible Embeddings",
++      "id": "openai/embeddings@1",
++      "operations": [
++        {
++          "id": "create",
++          "method": "POST",
++          "path": "/v1/embeddings"
++        }
++      ],
++      "wire_format": "openai.embeddings.v1"
++    },
++    {
++      "capabilities": [
++        "text",
++        "embedding",
++        "image_input"
++      ],
++      "default_base_path": "/api/v3",
++      "display_name": "Volcengine Ark Multimodal Embeddings",
++      "id": "ark/embeddings@1",
++      "operations": [
++        {
++          "id": "create",
++          "method": "POST",
++          "path": "/api/v3/embeddings/multimodal"
++        }
++      ],
++      "wire_format": "ark.embeddings.v1"
      }
    ],
    "providers": [
-@@ -95699,6 +95906,34 @@
+@@ -95699,6 +95944,34 @@
          "openai/chat-completions@1#list_models"
        ]
      },
@@ -6942,7 +8904,22 @@ index 4889ddd8a..9eac7dc3a 100644
      {
        "auth": {
          "header": "Authorization",
-@@ -97627,6 +97862,58 @@
+@@ -96143,12 +96416,14 @@
+         "monogram": "O"
+       },
+       "protocols": [
++        "openai/embeddings@1",
+         "openai/chat-completions@1",
+         "openai/responses@1"
+       ],
+       "reasoning_transport": "top_level_effort",
+       "support_tier": "native",
+       "supported_operations": [
++        "openai/embeddings@1#create",
+         "openai/chat-completions@1#create",
+         "openai/chat-completions@1#list_models",
+         "openai/responses@1#create",
+@@ -97627,6 +97902,58 @@
          "openai/chat-completions@1#create"
        ]
      },
@@ -7001,10 +8978,11 @@ index 4889ddd8a..9eac7dc3a 100644
      {
        "auth": {
          "header": "Authorization",
-@@ -98673,11 +98960,17 @@
+@@ -98673,11 +99000,19 @@
          "monogram": "v"
        },
        "protocols": [
++        "openai/embeddings@1",
 +        "vllm/realtime@1",
 +        "openai/audio-transcriptions@1",
 +        "openai/audio-translations@1",
@@ -7013,9 +8991,25 @@ index 4889ddd8a..9eac7dc3a 100644
        ],
        "support_tier": "runtime",
        "supported_operations": [
++        "openai/embeddings@1#create",
 +        "vllm/realtime@1#create",
 +        "openai/audio-transcriptions@1#create",
 +        "openai/audio-translations@1#create",
          "openai/chat-completions@1#create",
          "openai/chat-completions@1#list_models",
          "openai/responses@1#create",
+@@ -98738,12 +99073,14 @@
+         "monogram": "S"
+       },
+       "protocols": [
++        "ark/embeddings@1",
+         "openai/chat-completions@1",
+         "openai/responses@1"
+       ],
+       "reasoning_transport": "top_level_effort",
+       "support_tier": "native",
+       "supported_operations": [
++        "ark/embeddings@1#create",
+         "openai/chat-completions@1#create",
+         "openai/responses@1#create"
+       ]
