@@ -121,3 +121,10 @@ and [community expectations](CODE_OF_CONDUCT.md). Report vulnerabilities through
 [Apache-2.0](LICENSE). Upstream attribution is retained in [NOTICE](NOTICE) and
 prepared sources. Native libraries, engines, base images and model weights retain
 their own licenses; this repository does not distribute weights.
+
+## Deployment configuration ownership
+
+Configure deployment once in project A's `stack.yaml`, with credentials in its
+referenced private dotenv file. This repository continues to own native source,
+build locks and `release.yaml`; it does not need another copy of your host/model
+settings. See [contract delivery to project A](docs/image-delivery.md#configure-deployment-in-project-a).

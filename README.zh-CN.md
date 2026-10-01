@@ -58,3 +58,10 @@ H3 使用 `/v1/video/generations`；结果是原生 JSON/SSE，包含 RGB8 画�
 请阅读[贡献指南](CONTRIBUTING.md)、[补丁维护规则](patches/README.md)和
 [安全报告方式](SECURITY.md)。代码采用 [Apache-2.0](LICENSE)，保留上游归属与声明，
 见 [NOTICE](NOTICE)。模型权重、引擎、原生库与基础镜像保留各自许可证。
+
+## 统一部署配置
+
+实际主机、后端地址、模型与路由配置统一放在项目 A 的 `stack.yaml`，密钥由私有
+`secrets.env` 提供。本仓库继续维护构建锁定和 `release.yaml`，A 通过契约导入命令
+读取构建结果，无需在 A/B 两边手动修改同一套部署信息。
+详见[交付与配置边界](docs/image-delivery.md#configure-deployment-in-project-a)。
