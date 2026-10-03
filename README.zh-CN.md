@@ -70,3 +70,10 @@ H3 使用 `/v1/video/generations`；结果是原生 JSON/SSE，包含 RGB8 画�
 Embedding 已接入本地 Qwen3-VL-Embedding-2B 与云端方舟豆包：两种架构各
 39/39 项模拟后端验收、17/17 项真实 embedding/聊天、8/8 项原有聊天/视觉和
 3/3 项 H3 回归通过。详见 [preview.11 验证记录](validation/preview.11.json)。
+
+## ALP extension ownership
+
+Cloud ALP Function Calling is maintained separately in
+[semantic-router-alp](https://github.com/omni-runtime/semantic-router-alp).
+Use its locked composition to combine ALP and multimodal support in one SR image.
+This repository owns the multimodal base; its release metadata describes that base only.

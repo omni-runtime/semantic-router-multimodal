@@ -137,3 +137,10 @@ tests and real Qwen 2B/Ark embedding, chat and H3 checks.
 Embedding acceptance: **39/39 mock gateway cases on each architecture**, **17/17
 real embedding/chat cases**, **8/8 existing chat/vision cases**, and **3/3 H3
 cases**. See [preview.11 evidence and limits](validation/preview.11.json).
+
+## ALP extension ownership
+
+Cloud ALP Function Calling is maintained separately in
+[semantic-router-alp](https://github.com/omni-runtime/semantic-router-alp).
+Use its locked composition to combine ALP and multimodal support in one SR image.
+This repository owns the multimodal base; its release metadata describes that base only.
